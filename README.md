@@ -8,6 +8,10 @@ This repository will hold **containerized VPN infrastructure** (a `Dockerfile`, 
 - Automate delivery from **GitHub Actions**: deploy to the server **only when a GitHub Release is published** (`release`, type `published`). Ordinary merges to `main` do not deploy by themselves.
 - Document ports, firewall expectations, and backup/rekey procedures.
 
+## Developer workflow (GitHub)
+
+How **branches, pull requests, CI, tags, Releases, and deployment** fit together — read **[docs/github-workflow.md](docs/github-workflow.md)** first. The short **[CONTRIBUTING.md](CONTRIBUTING.md)** points to the same doc.
+
 ## Non-goals (for now)
 
 - Providing a public VPN exit for strangers (this is a **personal or small-team** setup unless you explicitly widen scope).
@@ -183,6 +187,8 @@ OpenVPN or Headscale remain options if client support or mesh topology becomes a
 
 ## Git workflow and deploy trigger
 
+Contributor-oriented overview: **[docs/github-workflow.md](docs/github-workflow.md)**. The sections below add detail (multi-tier VPS, tables).
+
 ### Branching
 
 - **Single integration branch:** `main`.
@@ -250,6 +256,7 @@ See **[docs/ROADMAP.md](docs/ROADMAP.md)** for the phased implementation plan (b
 ```
 ./
 ├── README.md
+├── CONTRIBUTING.md            # link to docs/github-workflow.md
 ├── docker-compose.yml
 ├── docker-compose.local.yml   # local overrides (LOCAL_WIREGUARD_CONFIG_DIRECTORY)
 ├── .env.example
@@ -260,7 +267,8 @@ See **[docs/ROADMAP.md](docs/ROADMAP.md)** for the phased implementation plan (b
 │   ├── Dockerfile.wizard-test
 │   └── docker-compose.wizard-test.yml
 ├── docs/
-│   └── ROADMAP.md
+│   ├── ROADMAP.md
+│   └── github-workflow.md   # branches, PRs, CI, releases → deploy
 ├── scripts/
 │   ├── compose-config-check.sh
 │   ├── local-compose-down.sh

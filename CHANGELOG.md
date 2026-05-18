@@ -7,7 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Nothing yet.
+### Documentation
+
+- **`docs/github-workflow.md`** — contributor-facing GitHub process (branches, PRs, CI, Releases, environments).
+- **`CONTRIBUTING.md`** — entry point linking to that workflow doc.
 
 ## [1.0.0] - 2026-05-18
 
