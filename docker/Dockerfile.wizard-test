@@ -1,0 +1,29 @@
+FROM debian:bookworm-slim
+
+# docker-compose-plugin is not in Debian Bookworm main; install Compose v2 CLI plugin from upstream.
+ARG DOCKER_COMPOSE_VERSION=2.29.7
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+       git \
+       sudo \
+       python3 \
+       ca-certificates \
+       curl \
+       docker.io \
+  && architecture_identifier="$(uname -m)" \
+  && case "${architecture_identifier}" in \
+       x86_64) compose_architecture_suffix=x86_64 ;; \
+       aarch64|arm64) compose_architecture_suffix=aarch64 ;; \
+       *) echo "unsupported architecture: ${architecture_identifier}" >&2; exit 1 ;; \
+     esac \
+  && mkdir -p /usr/local/lib/docker/cli-plugins \
+  && curl -fsSL "https://github.com/docker/compose/releases/download/v${DOCKER_COMPOSE_VERSION}/docker-compose-linux-${compose_architecture_suffix}" \
+       -o /usr/local/lib/docker/cli-plugins/docker-compose \
+  && chmod +x /usr/local/lib/docker/cli-plugins/docker-compose \
+  && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /workspace/repo
+
+# Repository is bind-mounted at runtime. Default command is overridden by compose.
+CMD ["./scripts/test-wizard-docker.sh"]

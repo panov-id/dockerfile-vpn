@@ -45,7 +45,11 @@ install_docker_debian() {
   export DEBIAN_FRONTEND=noninteractive
   run_sudo apt-get update -y
   run_sudo apt-get install -y docker.io docker-compose-plugin ca-certificates curl
-  run_sudo systemctl enable --now docker
+  if [[ -d /run/systemd/system ]] && command -v systemctl >/dev/null 2>&1; then
+    run_sudo systemctl enable --now docker || true
+  else
+    echo "(No systemd here — ensure Docker daemon is reachable, e.g. via docker.sock on the host.)"
+  fi
 }
 
 ensure_user_in_docker_group() {

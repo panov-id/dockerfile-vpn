@@ -1,0 +1,13 @@
+services:
+  wizard-test:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.wizard-test
+    volumes:
+      - ..:/workspace/repo
+      - /var/run/docker.sock:/var/run/docker.sock
+    working_dir: /workspace/repo
+    environment:
+      WIZARD_TEST_PUBLIC_HOST: "${WIZARD_TEST_PUBLIC_HOST:-203.0.113.50}"
+      WIZARD_TEST_SKIP_COMPOSE_UP: "${WIZARD_TEST_SKIP_COMPOSE_UP:-false}"
+    command: ["./scripts/test-wizard-docker.sh"]

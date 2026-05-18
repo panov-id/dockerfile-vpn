@@ -1,0 +1,29 @@
+name: Wizard Docker integration test
+
+on:
+  pull_request:
+    paths:
+      - scripts/server-setup-wizard.sh
+      - scripts/test-wizard-docker.sh
+      - docker/Dockerfile.wizard-test
+      - docker/docker-compose.wizard-test.yml
+      - .github/workflows/wizard-docker-test.yml
+
+permissions:
+  contents: read
+
+jobs:
+  wizard-docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Build wizard test image
+        run: docker compose -f docker/docker-compose.wizard-test.yml build wizard-test
+
+      - name: Run server-setup-wizard with scripted stdin (skip compose up)
+        env:
+          WIZARD_TEST_SKIP_COMPOSE_UP: "true"
+        run: docker compose -f docker/docker-compose.wizard-test.yml run --rm wizard-test

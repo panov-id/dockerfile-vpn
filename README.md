@@ -48,6 +48,52 @@ Do these **roughly in order**; later steps depend on earlier ones.
 
 After that, routine work is: **feature branch → PR → merge to `main` → tag → Release (pre-release or stable) → deploy**.
 
+## Versioning and releases
+
+- **Changelog:** [`CHANGELOG.md`](CHANGELOG.md) — what shipped in each version ([Keep a Changelog](https://keepachangelog.com/)).
+- **Tags:** [Semantic versioning](https://semver.org/) (`v1.0.0`, `v1.1.0`, …). The deploy workflow checks out the **tag** named on the GitHub Release.
+- **Cutting a release:** tag the intended commit on `main`, then [create a GitHub Release](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository) from that tag and **publish** it — that triggers **`deploy-release.yml`**. Use a **pre-release** for **`uat`** and a stable Release for **`production`** (see workflow).
+- **Patch/minor/major:** increment **PATCH** for fixes, **MINOR** for backward-compatible additions, **MAJOR** for breaking operational or compatibility changes you want callers to notice.
+
+## Process overview (how everything connects)
+
+| Stage | Where | What happens |
+|-------|--------|----------------|
+| **Local dev** | Your laptop | **`docker-compose.yml` + `docker-compose.local.yml`** and **`.env.local`**: WireGuard in Docker with state under **`./config.local/`**. Scripts: **`local-compose-*`**, **`local-smoke-check.sh`**, **`local-two-stacks-test.sh`**. No impact on production files. |
+| **Compose CI** | GitHub Actions | **`compose-validate.yml`** runs **`docker compose config`** for production and local env templates on PRs. |
+| **Wizard Docker test** | GitHub Actions / local | **`wizard-docker-test.yml`** on PRs (when wizard/test paths change): builds **`docker/Dockerfile.wizard-test`**, runs **`scripts/test-wizard-docker.sh`** with **`WIZARD_TEST_SKIP_COMPOSE_UP=true`**. Locally the same **`docker/docker-compose.wizard-test.yml`** — full wizard output in your terminal; use **`WIZARD_TEST_SKIP_COMPOSE_UP=true`** below to skip **`compose up`**. |
+| **First VPS setup** | Server | **`git clone`** → **`./scripts/server-setup-wizard.sh`** (interactive) **or** **`vps-bootstrap.sh`** (non-interactive). Produces a **git working tree** used as **`DEPLOY_DIRECTORY`**, a server **`.env`**, and Docker for **`docker compose`**. |
+| **Runtime deploy** | GitHub → VPS | **`deploy-release.yml`** on **`release` published**: SSH into **`DEPLOY_DIRECTORY`**, **`git fetch --tags`**, **`git checkout`** release tag, **`docker compose up -d --pull always`**. **Pre-release** uses GitHub Environment **`uat`**, stable release uses **`production`** (different secrets / **`DEPLOY_DIRECTORY`** per env). |
+
+### Integration test: server wizard inside Docker
+
+This runs **`server-setup-wizard.sh`** with **scripted stdin** inside a **Debian** container that has the **Docker CLI** and mounts **`/var/run/docker.sock`** from the host so **`docker compose`** talks to your real daemon (stdout/stderr are visible in the terminal). The image installs **`docker.io`** from Debian and the **`docker compose` v2 CLI plugin** from the [Compose releases](https://github.com/docker/compose/releases) (Debian Bookworm does not ship **`docker-compose-plugin`** in its default apt repositories).
+
+From the **repository root** on a machine with Docker:
+
+```bash
+docker compose -f docker/docker-compose.wizard-test.yml build wizard-test
+docker compose -f docker/docker-compose.wizard-test.yml run --rm wizard-test
+```
+
+By default this runs **`scripts/test-wizard-docker.sh`**, which answers prompts automatically and ends with **`docker compose up`** (pulls **linuxserver/wireguard**).
+
+Faster smoke (wizard only, **no** compose up):
+
+```bash
+WIZARD_TEST_SKIP_COMPOSE_UP=true docker compose -f docker/docker-compose.wizard-test.yml run --rm wizard-test
+```
+
+Optional:
+
+```bash
+WIZARD_TEST_PUBLIC_HOST=198.51.100.10 docker compose -f docker/docker-compose.wizard-test.yml run --rm wizard-test
+```
+
+**Note:** the wizard writes **`.env`** into the **mounted repo directory** (ignored by git). Remove it after a local test if needed: **`rm -f .env`** (only if you do not rely on that file).
+
+The same fast path runs in CI via **`.github/workflows/wizard-docker-test.yml`** (`WIZARD_TEST_SKIP_COMPOSE_UP=true`).
+
 ### Interactive wizard (optional — your laptop)
 
 After cloning/updating the repo on your **development machine**:
@@ -107,6 +153,7 @@ Override env files when needed: **`LOCAL_ENVIRONMENT_FILE`** for `./scripts/loca
 
 - `docker-compose.yml` running **[linuxserver/wireguard](https://docs.linuxserver.io/images/docker-wireguard/)** with values driven by `.env`.
 - **`.github/workflows/compose-validate.yml`** — on PRs touching Compose files, validates **`docker-compose.yml`** with `.env.example` and local merges using **`.env.local.example`** and **`.env.local.stack-b.example`**.
+- **`.github/workflows/wizard-docker-test.yml`** — builds **`docker/Dockerfile.wizard-test`** and runs **`server-setup-wizard.sh`** with scripted stdin ( **`WIZARD_TEST_SKIP_COMPOSE_UP=true`** for speed).
 - **`.github/workflows/deploy-release.yml`** — on **`release` published**, SSH to the VPS: **`git fetch --tags`**, **`git checkout`** release tag inside **`DEPLOY_DIRECTORY`**, **`docker compose up -d --pull always`** (no `scp`; server holds a full **git clone**).
 
 **Only you (or your cloud/GitHub account) can do:**
@@ -209,6 +256,9 @@ See **[docs/ROADMAP.md](docs/ROADMAP.md)** for the phased implementation plan (b
 ├── .env.local.example
 ├── .env.local.stack-b.example
 ├── .gitignore
+├── docker/
+│   ├── Dockerfile.wizard-test
+│   └── docker-compose.wizard-test.yml
 ├── docs/
 │   └── ROADMAP.md
 ├── scripts/
@@ -221,10 +271,12 @@ See **[docs/ROADMAP.md](docs/ROADMAP.md)** for the phased implementation plan (b
 │   ├── interactive-setup.sh   # menu: local checks + optional gh bootstrap
 │   ├── vps-bootstrap.sh       # one-shot Debian/Ubuntu: docker + git clone + .env
 │   ├── server-setup-wizard.sh # interactive after git clone on VPS
-│   └── deploy-from-runner-over-ssh.sh
+│   ├── deploy-from-runner-over-ssh.sh
+│   └── test-wizard-docker.sh  # scripted stdin for wizard (Docker test)
 └── .github/workflows/
     ├── compose-validate.yml
-    └── deploy-release.yml
+    ├── deploy-release.yml
+    └── wizard-docker-test.yml
 ```
 
 ## Security reminders
