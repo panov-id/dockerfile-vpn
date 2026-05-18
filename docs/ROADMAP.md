@@ -15,6 +15,7 @@ Step-by-step plan for containerized VPN on a VPS and automated deploy from GitHu
 ## 3. GitHub Actions → VPS
 
 - **Developer-facing summary:** [`docs/github-workflow.md`](github-workflow.md) (branches, PRs, CI, Releases, `uat` vs `production`).
+- **Server setup wizard (all prompts):** [`docs/server-wizard-user-guide.ru.md`](server-wizard-user-guide.ru.md) (Russian walkthrough for [`scripts/server-setup-wizard.sh`](../scripts/server-setup-wizard.sh)).
 - **Deploy trigger (fixed):** `on: release: types: [published]` only—no deploy solely from merges to `main`. Workflow files live under `.github/workflows/` (`deploy-release.yml`, `compose-validate.yml`).
 - **Git policy (fixed):** integrate via PR into `main`; protected branch; releases cut from tags on `main`.
 - **Optional multi-env on one VPS:** separate UDP ports, tunnel subnets, directories, and Compose project names; **dev** often local or manual/`workflow_dispatch`, **test** often CI-only or release tags, **UAT** vs production via prerelease or tag naming—see root `README.md` (“Dev / test / UAT on the same VPS”).

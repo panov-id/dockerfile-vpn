@@ -1,0 +1,58 @@
+name: Deploy dev stand
+
+on:
+  push:
+    branches:
+      - dev
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-dev:
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Upload stand tooling scripts to VPS
+        uses: appleboy/scp-action@v1.0.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "scripts/stand-layout.sh,scripts/stand-resolve-public-host.sh,scripts/remote/vps-deploy-stand.sh,scripts/remote/vps-teardown-stand.sh"
+          target: ${{ vars.STANDS_TOOLING_DIRECTORY }}
+          strip_components: 1
+
+      - name: Resolve WireGuard public hostname
+        id: host
+        run: |
+          set -euo pipefail
+          export STAND_DNS_ZONE="${{ vars.STAND_DNS_ZONE }}"
+          export WIREGUARD_SERVER_PUBLIC_HOST="${{ vars.WIREGUARD_SERVER_PUBLIC_HOST }}"
+          host="$(./scripts/stand-resolve-public-host.sh dev)"
+          echo "wireguard_server_public_host=${host}" >> "${GITHUB_OUTPUT}"
+
+      - name: Deploy dev branch (persistent stand)
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          STANDS_ROOT: ${{ vars.STANDS_ROOT }}
+          STANDS_TOOLING_DIRECTORY: ${{ vars.STANDS_TOOLING_DIRECTORY }}
+          WIREGUARD_SERVER_PUBLIC_HOST: ${{ steps.host.outputs.wireguard_server_public_host }}
+          GIT_REMOTE_URL: ${{ vars.GIT_REMOTE_URL }}
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script_stop: true
+          envs: STANDS_ROOT,STANDS_TOOLING_DIRECTORY,WIREGUARD_SERVER_PUBLIC_HOST,GIT_REMOTE_URL
+          script: |
+            set -euo pipefail
+            export STANDS_ROOT="${STANDS_ROOT:-/srv/vpn}"
+            export STANDS_TOOLING_DIRECTORY="${STANDS_TOOLING_DIRECTORY:-/srv/vpn/_tooling}"
+            export STAND_TYPE=dev
+            export GIT_REF=dev
+            export WIREGUARD_SERVER_PUBLIC_HOST="${WIREGUARD_SERVER_PUBLIC_HOST}"
+            export GIT_REMOTE_URL="${GIT_REMOTE_URL:-}"
+            bash "${STANDS_TOOLING_DIRECTORY}/remote/vps-deploy-stand.sh"

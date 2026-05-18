@@ -1,0 +1,135 @@
+name: Deploy merge request preview (into dev)
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+    branches:
+      - dev
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  deploy-mr-preview:
+    runs-on: ubuntu-latest
+    environment: mr-preview
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Upload stand tooling scripts to VPS
+        uses: appleboy/scp-action@v1.0.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "scripts/stand-layout.sh,scripts/stand-resolve-public-host.sh,scripts/remote/vps-deploy-stand.sh,scripts/remote/vps-teardown-stand.sh"
+          target: ${{ vars.STANDS_TOOLING_DIRECTORY }}
+          strip_components: 1
+
+      - name: Compute stand layout (port / subnet / hostname)
+        id: layout
+        run: |
+          set -euo pipefail
+          export STAND_DNS_ZONE="${{ vars.STAND_DNS_ZONE }}"
+          # shellcheck source=/dev/null
+          eval "$(./scripts/stand-layout.sh mr "${{ github.event.pull_request.number }}")"
+          if [[ -z "${WIREGUARD_SERVER_PUBLIC_HOST:-}" ]]; then
+            export WIREGUARD_SERVER_PUBLIC_HOST="${{ vars.WIREGUARD_SERVER_PUBLIC_HOST }}"
+          fi
+          if [[ -z "${WIREGUARD_SERVER_PUBLIC_HOST:-}" ]]; then
+            echo "Set vars.STAND_DNS_ZONE (e.g. vpn.example.com) or vars.WIREGUARD_SERVER_PUBLIC_HOST" >&2
+            exit 1
+          fi
+          {
+            echo "compose_project_name=${COMPOSE_PROJECT_NAME}"
+            echo "wireguard_server_port=${WIREGUARD_SERVER_PORT}"
+            echo "wireguard_internal_subnet=${WIREGUARD_INTERNAL_SUBNET}"
+            echo "stand_directory_suffix=${STAND_DIRECTORY_SUFFIX}"
+            echo "wireguard_server_public_host=${WIREGUARD_SERVER_PUBLIC_HOST}"
+          } >> "${GITHUB_OUTPUT}"
+          stands_root="${STANDS_ROOT:-/srv/vpn}"
+          echo "deploy_directory=${stands_root}/${STAND_DIRECTORY_SUFFIX}" >> "${GITHUB_OUTPUT}"
+        env:
+          STANDS_ROOT: ${{ vars.STANDS_ROOT }}
+
+      - name: Deploy PR merge result to VPS
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          STANDS_ROOT: ${{ vars.STANDS_ROOT }}
+          STANDS_TOOLING_DIRECTORY: ${{ vars.STANDS_TOOLING_DIRECTORY }}
+          WIREGUARD_SERVER_PUBLIC_HOST: ${{ steps.layout.outputs.wireguard_server_public_host }}
+          GIT_REMOTE_URL: ${{ vars.GIT_REMOTE_URL }}
+          PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script_stop: true
+          envs: STANDS_ROOT,STANDS_TOOLING_DIRECTORY,WIREGUARD_SERVER_PUBLIC_HOST,GIT_REMOTE_URL,PULL_REQUEST_NUMBER
+          script: |
+            set -euo pipefail
+            export STANDS_ROOT="${STANDS_ROOT:-/srv/vpn}"
+            export STANDS_TOOLING_DIRECTORY="${STANDS_TOOLING_DIRECTORY:-/srv/vpn/_tooling}"
+            export STAND_TYPE=mr
+            export GIT_REF="pull/${PULL_REQUEST_NUMBER}/merge"
+            export WIREGUARD_SERVER_PUBLIC_HOST="${WIREGUARD_SERVER_PUBLIC_HOST}"
+            export GIT_REMOTE_URL="${GIT_REMOTE_URL:-}"
+            export PULL_REQUEST_NUMBER="${PULL_REQUEST_NUMBER}"
+            bash "${STANDS_TOOLING_DIRECTORY}/remote/vps-deploy-stand.sh"
+
+      - name: Comment on pull request with stand endpoints
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pullRequestNumber = context.payload.pull_request.number;
+            const publicHost = '${{ steps.layout.outputs.wireguard_server_public_host }}';
+            const port = '${{ steps.layout.outputs.wireguard_server_port }}';
+            const projectName = '${{ steps.layout.outputs.compose_project_name }}';
+            const deployDirectory = '${{ steps.layout.outputs.deploy_directory }}';
+            const subnet = '${{ steps.layout.outputs.wireguard_internal_subnet }}';
+            const marker = '<!-- vpn-mr-preview-stand -->';
+            const body = [
+              marker,
+              '## MR preview stand (merge into `dev`)',
+              '',
+              'Deployed revision: **`pull/' + pullRequestNumber + '/merge`** (result of merging this PR into `dev`, not merged yet).',
+              '',
+              '| | |',
+              '|---|---|',
+              '| DNS (WireGuard endpoint) | `' + publicHost + '` |',
+              '| UDP port | `' + port + '` |',
+              '| Compose project | `' + projectName + '` |',
+              '| Tunnel subnet | `' + subnet + '` |',
+              '| Directory on VPS | `' + deployDirectory + '` |',
+              '',
+              'Point **`' + publicHost + '`** to the VPS IP (wildcard `*.' + '${{ vars.STAND_DNS_ZONE }}' + '` or a per-PR A record). Open **UDP ' + port + '** in cloud firewall.',
+              '',
+              'WireGuard client endpoint: **`' + publicHost + ':' + port + '`** — peer configs under ``config/`` on the server.',
+              '',
+              'Stand is removed when this PR is closed.',
+            ].join('\n');
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pullRequestNumber,
+            });
+            const existing = comments.find((comment) => comment.body && comment.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pullRequestNumber,
+                body,
+              });
+            }

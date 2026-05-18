@@ -1,0 +1,47 @@
+name: Teardown merge request preview
+
+on:
+  pull_request:
+    types:
+      - closed
+    branches:
+      - dev
+
+permissions:
+  contents: read
+
+jobs:
+  teardown-mr-preview:
+    runs-on: ubuntu-latest
+    environment: mr-preview
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Upload stand tooling scripts to VPS
+        uses: appleboy/scp-action@v1.0.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "scripts/stand-layout.sh,scripts/stand-resolve-public-host.sh,scripts/remote/vps-deploy-stand.sh,scripts/remote/vps-teardown-stand.sh"
+          target: ${{ vars.STANDS_TOOLING_DIRECTORY }}
+          strip_components: 1
+
+      - name: Remove MR preview stand
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          STANDS_ROOT: ${{ vars.STANDS_ROOT }}
+          STANDS_TOOLING_DIRECTORY: ${{ vars.STANDS_TOOLING_DIRECTORY }}
+          PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script_stop: true
+          envs: STANDS_ROOT,STANDS_TOOLING_DIRECTORY,PULL_REQUEST_NUMBER
+          script: |
+            set -euo pipefail
+            export STANDS_ROOT="${STANDS_ROOT:-/srv/vpn}"
+            export STANDS_TOOLING_DIRECTORY="${STANDS_TOOLING_DIRECTORY:-/srv/vpn/_tooling}"
+            export PULL_REQUEST_NUMBER="${PULL_REQUEST_NUMBER}"
+            bash "${STANDS_TOOLING_DIRECTORY}/remote/vps-teardown-stand.sh"

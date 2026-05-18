@@ -1,14 +1,21 @@
 # GitHub workflow for developers
 
-One place to see **how code moves from a branch to the VPS**. Operational setup (SSH keys, `DEPLOY_DIRECTORY`, WireGuard ports) stays in the root [`README.md`](../README.md); this file is the **delivery discipline**.
+One place to see **how code moves from a branch to the VPS**. If you prefer a short numbered story first, see **README → “Your workflow in five steps”**. Operational setup (SSH keys, `DEPLOY_DIRECTORY`, WireGuard ports) stays in the root [`README.md`](../README.md); this file is the **delivery discipline**.
 
 ## TL;DR
 
-1. Branch off **`main`**, open a **pull request**, get review / green checks, **merge to `main`**.
-2. Merging to **`main` does not deploy** to the VPS by itself.
-3. To ship: create a **semantic version tag** on `main` (for example `v1.1.0`), then **publish a [GitHub Release](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository)** for that tag.
-4. **Publishing** the Release triggers [`.github/workflows/deploy-release.yml`](../.github/workflows/deploy-release.yml): the server runs **`git fetch --tags`**, **`git checkout <tag>`**, **`docker compose up -d --pull always`** in **`DEPLOY_DIRECTORY`**.
-5. **Pre-release** checkbox → GitHub Environment **`uat`**; stable Release → **`production`** (same workflow, different secrets / variables per environment).
+Same story as **README → “Your workflow in five steps”**. Day-to-day on features:
+
+1. Branch from **`dev`**, open a **pull request into `dev`** → **MR preview** stand (e.g. `mr-42.vpn.example.com`) deploys **`pull/N/merge`**.
+2. Merge PR → **`dev`** stand updates on push to **`dev`**.
+3. When ready for production: merge **`dev`** → **`main`**, tag, **publish Release** → **`production`** / **`uat`** via [`.github/workflows/deploy-release.yml`](../.github/workflows/deploy-release.yml).
+
+**Production path** (unchanged):
+
+1. Merging to **`main` does not deploy** by itself.
+2. Create a **semver tag** on `main`, **publish a [GitHub Release](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository)**.
+3. **Publishing** triggers deploy: **`git fetch --tags`**, **`git checkout <tag>`**, **`docker compose up -d --pull always`** in **`DEPLOY_DIRECTORY`**.
+4. **Pre-release** → **`uat`**; stable → **`production`**.
 
 ```mermaid
 flowchart LR
@@ -39,11 +46,20 @@ flowchart LR
 
 ## Branches and merges
 
+| Branch | Role |
+|--------|------|
+| **`main`** | Production-ready; deploy via **Release** only |
+| **`dev`** | Integration for features; **push** updates the **dev** stand; **PRs target `dev`** |
+| **`test`** | **Push** updates the **test** stand |
+| **feature/\*** | Branch from **`dev`**; open PR **into `dev`** |
+
 | Rule | Detail |
 |------|--------|
-| Integration branch | **`main`** only |
-| Feature work | Topic branches; integrate via **pull request** |
-| Direct pushes to `main` | Discouraged — use **branch protection** (required PR, optional required checks) |
+| Production integration | **`main`** + published Release |
+| Feature integration | **Pull request → `dev`** (MR preview stand deploys automatically) |
+| Direct pushes to `main` | Discouraged — use **branch protection** |
+
+See **[docs/stands-on-one-vps.md](stands-on-one-vps.md)** for ports, GitHub Environments (`dev`, `test`, `mr-preview`), and workflows.
 
 ## CI on pull requests
 
@@ -51,6 +67,11 @@ flowchart LR
 |----------|----------------|--------------|
 | [`compose-validate.yml`](../.github/workflows/compose-validate.yml) | PRs touching Compose / env templates | `docker compose config` for production and local merge scenarios |
 | [`wizard-docker-test.yml`](../.github/workflows/wizard-docker-test.yml) | PRs touching wizard / Docker test paths | Builds test image, runs scripted wizard (`WIZARD_TEST_SKIP_COMPOSE_UP=true`) |
+| [`deploy-dev-stand.yml`](../.github/workflows/deploy-dev-stand.yml) | Push to **`dev`** | Persistent **dev** stand on VPS |
+| [`deploy-test-stand.yml`](../.github/workflows/deploy-test-stand.yml) | Push to **`test`** | Persistent **test** stand |
+| [`deploy-mr-preview.yml`](../.github/workflows/deploy-mr-preview.yml) | PR → **`dev`** | Ephemeral **mr-&lt;N&gt;** stand from **`pull/N/merge`**; comment on PR |
+| [`teardown-mr-preview.yml`](../.github/workflows/teardown-mr-preview.yml) | PR → **`dev`** closed | Removes **mr-&lt;N&gt;** stand |
+| [`stand-layout-validate.yml`](../.github/workflows/stand-layout-validate.yml) | PRs touching stand scripts | Asserts port/subnet layout |
 
 Fix failures on the PR before merging; **`main`** should stay releasable.
 
@@ -94,5 +115,6 @@ Nothing secret belongs in Git. On GitHub you store deploy SSH material and set *
 | Topic | Location |
 |-------|----------|
 | Full setup, firewall, `DEPLOY_DIRECTORY`, smoke tests | [`README.md`](../README.md) |
+| **VPS server wizard** — every question and branch (Russian) | [`docs/server-wizard-user-guide.ru.md`](server-wizard-user-guide.ru.md) |
 | Phased plan / backlog | [`docs/ROADMAP.md`](ROADMAP.md) |
 | Multi-tier dev/test/UAT on one VPS | README section **Git workflow** → **Dev / test / UAT on the same VPS** |

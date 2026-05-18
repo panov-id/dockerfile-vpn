@@ -8,6 +8,35 @@ This repository will hold **containerized VPN infrastructure** (a `Dockerfile`, 
 - Automate delivery from **GitHub Actions**: deploy to the server **only when a GitHub Release is published** (`release`, type `published`). Ordinary merges to `main` do not deploy by themselves.
 - Document ports, firewall expectations, and backup/rekey procedures.
 
+## Your workflow in five steps
+
+This repository assumes you move like this:
+
+| Step | Where | What you do |
+|------|-------|-------------|
+| **1 — Develop locally** | Your laptop | Edit the repo; optionally run the stack with **`docker-compose.local.yml`** and **`./scripts/local-compose-up.sh`** / **`local-smoke-check.sh`** (nothing hits the VPS yet). |
+| **2 — Put it in Git** | GitHub | Push your branch, open a **pull request**, merge into **`main`**. **Merge does not deploy** by itself. |
+| **3 — Set up the server** | VPS (+ GitHub settings) | **Once per VPS/environment:** clone this repo on the server, run **`./scripts/server-setup-wizard.sh`** (Docker, **`.env`**, optional first **`docker compose up`**). In GitHub: **Actions** + **Environments** (**`production`** / **`uat`**), secrets **`SSH_HOST`**, **`SSH_USER`**, **`SSH_PRIVATE_KEY`**, variable **`DEPLOY_DIRECTORY`** = absolute path the wizard printed. Open **UDP** for WireGuard in cloud + host firewall. Details: [Getting started](#getting-started-what-you-need-first); wizard prompts (Russian): [`docs/server-wizard-user-guide.ru.md`](docs/server-wizard-user-guide.ru.md). |
+| **4 — Publish a Release** | GitHub | Create a **tag** on **`main`** (e.g. **`v1.1.0`**), open **Releases**, **publish** a Release for that tag ([docs](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository)). **Pre-release** → **`uat`** environment; stable → **`production`** ([`deploy-release.yml`](.github/workflows/deploy-release.yml)). |
+| **5 — See the result on the server** | VPS | The workflow SSHs to **`DEPLOY_DIRECTORY`**, **`git fetch --tags`**, **`git checkout`** the release tag, **`docker compose up -d --pull always`**. Check with **`docker compose ps`** / **`docker compose logs -f wireguard`**. |
+
+**After step 3 is done**, routine delivery to **production** is **1 → 2 → 4 → 5**. Repeat step **3** only for a **new** server or GitHub Environment.
+
+### Dev, test, and MR preview (same VPS for now)
+
+| Stand | When it updates | What gets deployed |
+|-------|-----------------|-------------------|
+| **`dev`** | Push to branch **`dev`** | Branch `dev` at `${STANDS_ROOT}/dev` |
+| **`test`** | Push to branch **`test`** | Branch `test` at `${STANDS_ROOT}/test` |
+| **`mr-<PR#>`** | Pull request **into `dev`** (open/sync) | Git ref **`pull/<PR>/merge`** — preview of merging into `dev` **before** you click Merge |
+| **production / uat** | Published **Release** | Release tag (unchanged) |
+
+Each stand uses its own **UDP port**, **tunnel subnet**, **Compose project name**, and **DNS name** when **`STAND_DNS_ZONE`** is set (e.g. MR **#42** → `mr-42.vpn.example.com`). Full setup: **[docs/stands-on-one-vps.md](docs/stands-on-one-vps.md)**.
+
+Typical feature flow: branch from **`dev`** → PR to **`dev`** → MR preview stand for manual check → merge → **`dev`** stand updates → later **`main`** + Release for production.
+
+Process detail for contributors: **[docs/github-workflow.md](docs/github-workflow.md)**.
+
 ## Developer workflow (GitHub)
 
 How **branches, pull requests, CI, tags, Releases, and deployment** fit together — read **[docs/github-workflow.md](docs/github-workflow.md)** first. The short **[CONTRIBUTING.md](CONTRIBUTING.md)** points to the same doc.
@@ -25,7 +54,9 @@ How **branches, pull requests, CI, tags, Releases, and deployment** fit together
 
 ## Getting started (what you need first)
 
-Do these **roughly in order**; later steps depend on earlier ones.
+The **[five-step workflow](#your-workflow-in-five-steps)** above is the overview; below is **checklist detail** for step **3** (server + GitHub wiring) and friends.
+
+Do these **roughly in order** the first time; later steps depend on earlier ones.
 
 1. **VPS — Git already installed (recommended flow)**  
    ```bash
@@ -35,6 +66,10 @@ Do these **roughly in order**; later steps depend on earlier ones.
    ./scripts/server-setup-wizard.sh
    ```
    The wizard asks whether to use **this clone** as the deploy directory or **clone again** elsewhere, then (on Debian/Ubuntu) can install **Docker + Compose**, fills **`.env`**, optional **ufw**, optional first **`docker compose up`**. At the end it prints the absolute path → paste into GitHub Environment variable **`DEPLOY_DIRECTORY`**.
+
+   **Full prompt-by-prompt user guide (Russian):** [`docs/server-wizard-user-guide.ru.md`](docs/server-wizard-user-guide.ru.md) — numbered stages, description + examples per prompt, scenarios A–D. On the VPS, Russian hints appear when `LANG` is `ru*` or `WIZARD_LANGUAGE=ru`. The wizard prints the **5-step workflow**, offers **production / uat / custom** stack presets, and ends with a checklist for **Release** (steps 4–5).
+
+   **Not the same script:** on your **laptop**, **`scripts/interactive-setup.sh`** is only a **menu** (local Compose checks, optional `gh` helpers). It does **not** replace **`server-setup-wizard.sh`** on the VPS.
 
    **Private repo:** use an SSH URL or HTTPS with credentials your server already has configured.
 
@@ -57,6 +92,7 @@ After that, routine work is: **feature branch → PR → merge to `main` → tag
 - **Changelog:** [`CHANGELOG.md`](CHANGELOG.md) — what shipped in each version ([Keep a Changelog](https://keepachangelog.com/)).
 - **Tags:** [Semantic versioning](https://semver.org/) (`v1.0.0`, `v1.1.0`, …). The deploy workflow checks out the **tag** named on the GitHub Release.
 - **Cutting a release:** tag the intended commit on `main`, then [create a GitHub Release](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository) from that tag and **publish** it — that triggers **`deploy-release.yml`**. Use a **pre-release** for **`uat`** and a stable Release for **`production`** (see workflow).
+- **Stands (1.1.0):** see **[docs/stands-on-one-vps.md](docs/stands-on-one-vps.md)** — set **`STAND_DNS_ZONE`**, create GitHub Environments **`dev`**, **`test`**, **`mr-preview`**, branches **`dev`** and **`test`**.
 - **Patch/minor/major:** increment **PATCH** for fixes, **MINOR** for backward-compatible additions, **MAJOR** for breaking operational or compatibility changes you want callers to notice.
 
 ## Process overview (how everything connects)
@@ -98,15 +134,17 @@ WIZARD_TEST_PUBLIC_HOST=198.51.100.10 docker compose -f docker/docker-compose.wi
 
 The same fast path runs in CI via **`.github/workflows/wizard-docker-test.yml`** (`WIZARD_TEST_SKIP_COMPOSE_UP=true`).
 
-### Interactive wizard (optional — your laptop)
+### Laptop helper menu (`interactive-setup.sh`)
 
-After cloning/updating the repo on your **development machine**:
+After cloning/updating the repo on your **development machine** (this is **not** the VPS server wizard):
 
 ```bash
 ./scripts/interactive-setup.sh
 ```
 
 This menu walks through **Compose validation**, **local Docker smoke**, **VPS / GitHub checklists**, and (if **`gh`** is installed and logged in) **creating environments** and **uploading deploy secrets** via `gh secret` / `gh variable` — nothing sensitive is committed to Git.
+
+For **server** setup after `git clone` on the VPS, use **`./scripts/server-setup-wizard.sh`** and the guide **[`docs/server-wizard-user-guide.ru.md`](docs/server-wizard-user-guide.ru.md)**.
 
 **Note:** CI/CD in this repository is **GitHub Actions**. A GitLab mirror would need a separate `.gitlab-ci.yml` if you move hosting later.
 
@@ -158,7 +196,10 @@ Override env files when needed: **`LOCAL_ENVIRONMENT_FILE`** for `./scripts/loca
 - `docker-compose.yml` running **[linuxserver/wireguard](https://docs.linuxserver.io/images/docker-wireguard/)** with values driven by `.env`.
 - **`.github/workflows/compose-validate.yml`** — on PRs touching Compose files, validates **`docker-compose.yml`** with `.env.example` and local merges using **`.env.local.example`** and **`.env.local.stack-b.example`**.
 - **`.github/workflows/wizard-docker-test.yml`** — builds **`docker/Dockerfile.wizard-test`** and runs **`server-setup-wizard.sh`** with scripted stdin ( **`WIZARD_TEST_SKIP_COMPOSE_UP=true`** for speed).
-- **`.github/workflows/deploy-release.yml`** — on **`release` published**, SSH to the VPS: **`git fetch --tags`**, **`git checkout`** release tag inside **`DEPLOY_DIRECTORY`**, **`docker compose up -d --pull always`** (no `scp`; server holds a full **git clone**).
+- **`.github/workflows/stand-layout-validate.yml`** — asserts port/subnet/DNS layout from **`scripts/stand-layout.sh`**.
+- **`.github/workflows/deploy-dev-stand.yml`** / **`deploy-test-stand.yml`** — push to **`dev`** / **`test`** updates persistent stands on the VPS.
+- **`.github/workflows/deploy-mr-preview.yml`** / **`teardown-mr-preview.yml`** — PR into **`dev`** deploys **`pull/N/merge`** to **`mr-N`** stand (e.g. **`mr-42.vpn.example.com`**); teardown on PR close.
+- **`.github/workflows/deploy-release.yml`** — on **`release` published**, SSH to the VPS: **`git fetch --tags`**, **`git checkout`** release tag inside **`DEPLOY_DIRECTORY`**, **`docker compose up -d --pull always`** (server holds a full **git clone**).
 
 **Only you (or your cloud/GitHub account) can do:**
 
@@ -268,23 +309,33 @@ See **[docs/ROADMAP.md](docs/ROADMAP.md)** for the phased implementation plan (b
 │   └── docker-compose.wizard-test.yml
 ├── docs/
 │   ├── ROADMAP.md
-│   └── github-workflow.md   # branches, PRs, CI, releases → deploy
+│   ├── github-workflow.md
+│   ├── stands-on-one-vps.md   # dev / test / MR stands, DNS, ports
+│   └── server-wizard-user-guide.ru.md
 ├── scripts/
+│   ├── stand-layout.sh
+│   ├── stand-resolve-public-host.sh
+│   ├── remote/
+│   │   ├── vps-deploy-stand.sh
+│   │   └── vps-teardown-stand.sh
 │   ├── compose-config-check.sh
-│   ├── local-compose-down.sh
-│   ├── local-compose-logs.sh
-│   ├── local-compose-up.sh
+│   ├── local-compose-*.sh
 │   ├── local-smoke-check.sh
 │   ├── local-two-stacks-test.sh
-│   ├── interactive-setup.sh   # menu: local checks + optional gh bootstrap
-│   ├── vps-bootstrap.sh       # one-shot Debian/Ubuntu: docker + git clone + .env
-│   ├── server-setup-wizard.sh # interactive after git clone on VPS
+│   ├── interactive-setup.sh
+│   ├── vps-bootstrap.sh
+│   ├── server-setup-wizard.sh
 │   ├── deploy-from-runner-over-ssh.sh
-│   └── test-wizard-docker.sh  # scripted stdin for wizard (Docker test)
+│   └── test-wizard-docker.sh
 └── .github/workflows/
     ├── compose-validate.yml
-    ├── deploy-release.yml
-    └── wizard-docker-test.yml
+    ├── stand-layout-validate.yml
+    ├── wizard-docker-test.yml
+    ├── deploy-dev-stand.yml
+    ├── deploy-test-stand.yml
+    ├── deploy-mr-preview.yml
+    ├── teardown-mr-preview.yml
+    └── deploy-release.yml
 ```
 
 ## Security reminders

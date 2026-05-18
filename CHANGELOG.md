@@ -7,10 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Documentation
+Nothing yet.
 
-- **`docs/github-workflow.md`** — contributor-facing GitHub process (branches, PRs, CI, Releases, environments).
-- **`CONTRIBUTING.md`** — entry point linking to that workflow doc.
+## [1.1.0] - 2026-05-18
+
+### Added
+
+- **Stands on one VPS:** persistent **`dev`** and **`test`** stands; **MR preview** on every PR into **`dev`** (`pull/N/merge`), PR comment with endpoint, teardown on close.
+- **Per-stand DNS** via **`STAND_DNS_ZONE`** (e.g. `mr-42.vpn.example.com`, `dev.vpn.example.com`; wildcard `*.vpn.example.com` recommended).
+- **`scripts/stand-layout.sh`**, **`scripts/stand-resolve-public-host.sh`**, **`scripts/remote/vps-deploy-stand.sh`**, **`scripts/remote/vps-teardown-stand.sh`**.
+- Workflows: **`deploy-dev-stand.yml`**, **`deploy-test-stand.yml`**, **`deploy-mr-preview.yml`**, **`teardown-mr-preview.yml`**, **`stand-layout-validate.yml`**.
+- **`docs/stands-on-one-vps.md`** — ports, DNS, GitHub variables, first-time VPS layout.
+- **`docs/server-wizard-user-guide.ru.md`** — Russian walkthrough: 5-step context, wizard stages, examples, scenarios A–D.
+- **`docs/github-workflow.md`**, **`CONTRIBUTING.md`**, README **Your workflow in five steps**.
+
+### Changed
+
+- **`server-setup-wizard.sh`**: workflow intro/finish, numbered stages, bilingual help (`WIZARD_LANGUAGE` / `LANG=ru*`), stack profiles aligned with **`stand-layout.sh`**.
+- **`test-wizard-docker.sh`**: answers for profile, `.env` reconfigure, optional **ufw**.
 
 ## [1.0.0] - 2026-05-18
 

@@ -1,0 +1,47 @@
+name: Validate stand layout script
+
+on:
+  pull_request:
+    paths:
+      - scripts/stand-layout.sh
+      - scripts/remote/**
+      - .github/workflows/stand-layout-validate.yml
+      - .github/workflows/deploy-*-stand.yml
+      - .github/workflows/deploy-mr-preview.yml
+      - .github/workflows/teardown-mr-preview.yml
+
+permissions:
+  contents: read
+
+jobs:
+  stand-layout:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Syntax-check stand scripts
+        run: |
+          bash -n scripts/stand-layout.sh
+          bash -n scripts/stand-resolve-public-host.sh
+          bash -n scripts/remote/vps-deploy-stand.sh
+          bash -n scripts/remote/vps-teardown-stand.sh
+
+      - name: Assert expected layout for dev, test, and MR
+        run: |
+          set -euo pipefail
+          # shellcheck source=/dev/null
+          eval "$(./scripts/stand-layout.sh dev)"
+          test "${WIREGUARD_SERVER_PORT}" = "51823"
+          test "${COMPOSE_PROJECT_NAME}" = "vpn-dev"
+          # shellcheck source=/dev/null
+          eval "$(./scripts/stand-layout.sh test)"
+          test "${WIREGUARD_SERVER_PORT}" = "51822"
+          # shellcheck source=/dev/null
+          eval "$(./scripts/stand-layout.sh mr 7)"
+          test "${WIREGUARD_SERVER_PORT}" = "51907"
+          test "${STAND_DIRECTORY_SUFFIX}" = "mr-7"
+          export STAND_DNS_ZONE=vpn.example.com
+          # shellcheck source=/dev/null
+          eval "$(./scripts/stand-layout.sh mr 42)"
+          test "${WIREGUARD_SERVER_PUBLIC_HOST}" = "mr-42.vpn.example.com"
+          test "$(./scripts/stand-resolve-public-host.sh dev)" = "dev.vpn.example.com"
