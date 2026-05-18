@@ -1,0 +1,13 @@
+# Merge with base compose for laptop / workstation testing:
+#   docker compose -f docker-compose.yml -f docker-compose.local.yml --env-file .env.local up -d
+#
+# Uses LOCAL_WIREGUARD_CONFIG_DIRECTORY (see .env.local*) so parallel stacks use separate dirs.
+
+# Persist WireGuard state under LOCAL_WIREGUARD_CONFIG_DIRECTORY (see .env.local*)
+# so you can run two stacks from one clone without sharing keys.
+
+services:
+  wireguard:
+    volumes:
+      - ${LOCAL_WIREGUARD_CONFIG_DIRECTORY:-./config.local}:/config
+    restart: "no"

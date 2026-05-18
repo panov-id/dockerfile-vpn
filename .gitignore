@@ -1,6 +1,10 @@
 .env
 .env.*
 !.env.example
+!.env.local.example
+!.env.local.stack-b.example
 
 # linuxserver/wireguard persists generated keys and peer configs here
 config/
+config.local/
+config.local.stack-b/

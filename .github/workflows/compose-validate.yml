@@ -4,8 +4,13 @@ on:
   pull_request:
     paths:
       - docker-compose.yml
+      - docker-compose.local.yml
       - .env.example
+      - .env.local.example
+      - .env.local.stack-b.example
       - scripts/compose-config-check.sh
+      - scripts/local-smoke-check.sh
+      - scripts/local-two-stacks-test.sh
 
 permissions:
   contents: read
@@ -16,5 +21,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Validate Compose file
+      - name: Validate Compose (production template)
         run: docker compose --env-file .env.example config >/dev/null
+
+      - name: Validate Compose (local merge, stack A template)
+        run: docker compose -f docker-compose.yml -f docker-compose.local.yml --env-file .env.local.example config >/dev/null
+
+      - name: Validate Compose (local merge, stack B template)
+        run: docker compose -f docker-compose.yml -f docker-compose.local.yml --env-file .env.local.stack-b.example config >/dev/null

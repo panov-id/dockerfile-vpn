@@ -51,12 +51,53 @@ Do these **roughly in order**; later steps depend on earlier ones.
 
 After that, routine work is: **feature branch → PR → merge to `main` → tag → Release (pre-release or stable) → deploy**.
 
+## Local environment (test on your laptop)
+
+**What fits:** the same **Docker Compose + linuxserver/wireguard** stack merged with **`docker-compose.local.yml`**. Persisted keys and peers live under **`LOCAL_WIREGUARD_CONFIG_DIRECTORY`** on the host (defaults to **`./config.local/`**), never mixed with VPS **`./config/`**.
+
+1. Copy **`.env.local.example` → `.env.local`** (gitignored).
+2. Adjust **`WIREGUARD_SERVER_PUBLIC_HOST`**: use **`127.0.0.1`** only if the WireGuard client runs **on this machine**; for a phone or another PC on the LAN, use your laptop’s **LAN IP**.
+3. Ensure **`WIREGUARD_SERVER_PORT`** (default `51830` in the example) is free.
+
+```bash
+./scripts/local-compose-up.sh
+./scripts/local-compose-logs.sh    # optional; Ctrl+C to stop tailing
+./scripts/local-compose-down.sh
+```
+
+### Automated smoke check (one stack)
+
+After **`./scripts/local-compose-up.sh`** (or let the script start the stack for you):
+
+```bash
+./scripts/local-smoke-check.sh
+# Second env file:
+LOCAL_ENVIRONMENT_FILE="$(pwd)/.env.local.stack-b" ./scripts/local-smoke-check.sh
+```
+
+This verifies **`docker compose ps`**, **`wg show`** (listening port present, retries up to ~60s), and **`wg_confs/wg0.conf`** under your **`LOCAL_WIREGUARD_CONFIG_DIRECTORY`**.
+
+### Two parallel stacks on one machine (dev rehearsal)
+
+Models two VPS instances from one clone: different **`COMPOSE_PROJECT_NAME`**, **UDP port**, **tunnel subnet**, and **config directory**.
+
+```bash
+cp .env.local.example .env.local
+cp .env.local.stack-b.example .env.local.stack-b
+./scripts/local-two-stacks-test.sh           # tears down both stacks when finished
+./scripts/local-two-stacks-test.sh --keep-running   # leaves them up for manual client tests
+```
+
+Override env files when needed: **`LOCAL_ENVIRONMENT_FILE`** for `./scripts/local-compose-*.sh` and **`PRIMARY_LOCAL_ENVIRONMENT_FILE` / `SECONDARY_LOCAL_ENVIRONMENT_FILE`** for **`local-two-stacks-test.sh`**.
+
+**Requirements:** Linux (or any host where Docker can grant **`NET_ADMIN`** to the container). **WireGuard kernel module** may need to be loaded on the host for linuxserver’s image to behave well—if the container fails to bring up `wg0`, check image logs and host `modprobe wireguard`.
+
 ## What this repository automates vs what only you can do
 
 **Inside Git (done here):**
 
 - `docker-compose.yml` running **[linuxserver/wireguard](https://docs.linuxserver.io/images/docker-wireguard/)** with values driven by `.env`.
-- **`.github/workflows/compose-validate.yml`** — on PRs touching Compose files, runs `docker compose --env-file .env.example config`.
+- **`.github/workflows/compose-validate.yml`** — on PRs touching Compose files, validates **`docker-compose.yml`** with `.env.example` and local merges using **`.env.local.example`** and **`.env.local.stack-b.example`**.
 - **`.github/workflows/deploy-release.yml`** — on **`release` published**, checks out the release tag, **scp**’s `docker-compose.yml` and `.env.example` to **`DEPLOY_DIRECTORY`** on the VPS, then SSH **`docker compose up -d --pull always`**. The job targets GitHub Environment **`uat`** when the release is a **pre-release**, otherwise **`production`**.
 
 **Only you (or your cloud/GitHub account) can do:**
@@ -154,13 +195,21 @@ See **[docs/ROADMAP.md](docs/ROADMAP.md)** for the phased implementation plan (b
 ./
 ├── README.md
 ├── docker-compose.yml
+├── docker-compose.local.yml   # local overrides (LOCAL_WIREGUARD_CONFIG_DIRECTORY)
 ├── .env.example
+├── .env.local.example
+├── .env.local.stack-b.example
 ├── .gitignore
 ├── docs/
 │   └── ROADMAP.md
 ├── scripts/
-│   ├── compose-config-check.sh    # optional local check
-│   └── deploy-from-runner-over-ssh.sh  # optional manual mirror of CI
+│   ├── compose-config-check.sh
+│   ├── local-compose-down.sh
+│   ├── local-compose-logs.sh
+│   ├── local-compose-up.sh
+│   ├── local-smoke-check.sh
+│   ├── local-two-stacks-test.sh
+│   └── deploy-from-runner-over-ssh.sh
 └── .github/workflows/
     ├── compose-validate.yml
     └── deploy-release.yml
