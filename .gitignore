@@ -1,0 +1,6 @@
+.env
+.env.*
+!.env.example
+
+# linuxserver/wireguard persists generated keys and peer configs here
+config/
