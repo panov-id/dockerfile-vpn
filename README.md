@@ -37,6 +37,21 @@ Typical feature flow: branch from **`dev`** → PR to **`dev`** → MR preview s
 
 Process detail for contributors: **[docs/github-workflow.md](docs/github-workflow.md)**.
 
+## One-command platform setup (secrets only)
+
+You only maintain **`.env.platform`** (gitignored). Everything else is scripted.
+
+```bash
+cp .env.platform.example .env.platform
+# Edit: SSH_HOST, SSH_USER, SSH_PRIVATE_KEY_FILE, STAND_DNS_ZONE
+gh auth login   # once
+./scripts/setup-platform.sh
+```
+
+Optional shell alias: `source scripts/platform-aliases.sh` then run **`vpn-setup`**.
+
+The script configures **GitHub** (environments `production`, `uat`, `dev`, `test`, `mr-preview` + secrets/variables), creates **`dev`** / **`test`** branches if missing, and **bootstraps stands on the VPS** via SSH. See **[docs/stands-on-one-vps.md](docs/stands-on-one-vps.md)** for DNS (`*.vpn.example.com` → VPS).
+
 ## Developer workflow (GitHub)
 
 How **branches, pull requests, CI, tags, Releases, and deployment** fit together — read **[docs/github-workflow.md](docs/github-workflow.md)** first. The short **[CONTRIBUTING.md](CONTRIBUTING.md)** points to the same doc.
@@ -313,6 +328,8 @@ See **[docs/ROADMAP.md](docs/ROADMAP.md)** for the phased implementation plan (b
 │   ├── stands-on-one-vps.md   # dev / test / MR stands, DNS, ports
 │   └── server-wizard-user-guide.ru.md
 ├── scripts/
+│   ├── setup-platform.sh      # one-shot from .env.platform
+│   ├── platform-aliases.sh    # optional: vpn-setup alias
 │   ├── stand-layout.sh
 │   ├── stand-resolve-public-host.sh
 │   ├── remote/

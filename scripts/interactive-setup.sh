@@ -199,6 +199,7 @@ Repository root: ${repository_root}
 Detected GitHub repo slug: ${REPO_SLUG}
 
 Choose:
+  8) Run full platform setup from .env.platform (recommended — ./scripts/setup-platform.sh)
   1) Validate Compose templates (docker compose config)
   2) Create/update .env.local from example + optional smoke check
   3) Two-stack local integration test (needs Docker)
@@ -215,8 +216,9 @@ main() {
   echo "dockerfile-vpn — interactive setup (GitHub Actions deploy)"
   while true; do
     show_main_menu
-    read -r -p "Enter choice [0-7]: " choice
+    read -r -p "Enter choice [0-8]: " choice
     case "${choice:-}" in
+      8) bash "${repository_root}/scripts/setup-platform.sh" ;;
       1) cmd_validate_compose ;;
       2) cmd_prepare_local_smoke ;;
       3) cmd_two_stack_test ;;

@@ -64,7 +64,17 @@ Open **every used UDP port** in the cloud provider firewall (and host `ufw` if e
 
 **MR limit:** PR numbers above **1099** exceed port 52999 — reduce PR number or adjust the formula in `stand-layout.sh` before that happens.
 
-## GitHub setup (once per repo)
+## GitHub setup (automated)
+
+Run on your laptop (after `cp .env.platform.example .env.platform` and `gh auth login`):
+
+```bash
+./scripts/setup-platform.sh
+```
+
+This creates environments, uploads secrets/variables, and bootstraps VPS stands — no manual typing in the GitHub UI.
+
+### Manual reference (if you skip the script)
 
 Create **Environments**: `dev`, `test`, `mr-preview` (can share the same VPS; secrets may be identical).
 

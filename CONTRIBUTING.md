@@ -9,6 +9,9 @@
 **Dev / test / MR preview stands (one VPS):**  
 → **[docs/stands-on-one-vps.md](docs/stands-on-one-vps.md)**.
 
+**Automated setup (edit `.env.platform` only):**  
+→ **`./scripts/setup-platform.sh`** (alias `vpn-setup` after `source scripts/platform-aliases.sh`).
+
 **VPS setup wizard — every question explained (Russian):**  
 → **[docs/server-wizard-user-guide.ru.md](docs/server-wizard-user-guide.ru.md)**.
 

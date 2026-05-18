@@ -3,6 +3,7 @@
 !.env.example
 !.env.local.example
 !.env.local.stack-b.example
+!.env.platform.example
 
 # linuxserver/wireguard persists generated keys and peer configs here
 config/
