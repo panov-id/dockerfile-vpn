@@ -88,17 +88,19 @@ cmd_two_stack_test() {
 cmd_print_vps_checklist() {
   print_separator
   cat <<EOF
-VPS (run these via SSH on the server; replace paths and ports):
+VPS — prefer one script on Debian/Ubuntu (installs git + Docker + clones repo + seeds .env):
 
-  1. Install Docker Engine + Docker Compose plugin.
-  2. mkdir -p /opt/dockerfile-vpn/production && mkdir -p /opt/dockerfile-vpn/uat
-  3. Copy .env.example → .env inside each directory; set WIREGUARD_SERVER_PUBLIC_HOST,
-     WIREGUARD_SERVER_PORT, WIREGUARD_INTERNAL_SUBNET, COMPOSE_PROJECT_NAME (unique per stack).
-  4. Open UDP ports in cloud firewall + host firewall (ufw/nftables) for each WireGuard port.
-  5. First manual bring-up (same as CI): cd DEPLOY_DIR && docker compose up -d
-  6. Copy peer configs from ./config/peer_* to your devices for a handshake test.
+  curl -fsSL 'https://raw.githubusercontent.com/${REPO_SLUG}/main/scripts/vps-bootstrap.sh' | sudo \\
+    VPS_DEPLOY_GIT_URL='git@github.com:${REPO_SLUG}.git' \\
+    VPS_DEPLOY_DIRECTORY='/opt/dockerfile-vpn/production' \\
+    bash
 
-Repository slug for GitHub URLs: ${REPO_SLUG}
+Then: edit DEPLOY_DIRECTORY/.env, open UDP in cloud firewall, run:
+  cd /opt/dockerfile-vpn/production && docker compose up -d
+
+GitHub Actions deploy only runs git + compose in DEPLOY_DIRECTORY (no scp).
+
+Repository slug: ${REPO_SLUG}
 EOF
 }
 

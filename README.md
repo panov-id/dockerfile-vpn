@@ -16,38 +16,36 @@ This repository will hold **containerized VPN infrastructure** (a `Dockerfile`, 
 ## Prerequisites (high level)
 
 - A VPS with a public IP and **UDP** (and optionally **TCP**) ports opened in the provider firewall and OS firewall.
-- **Docker Engine** and optionally **Docker Compose v2** on the VPS (installation steps will be added with the compose file).
+- **Docker Engine + Compose plugin** on the VPS — on Debian/Ubuntu usually installed by **`scripts/vps-bootstrap.sh`**; on other systems install manually.
 - A **GitHub** repository with **Actions** enabled. Use **GitHub-hosted runners** (SSH deploy to your VPS over the public internet) or a **self-hosted runner** on the VPS if you prefer jobs to run locally without inbound SSH from GitHub’s cloud.
 
 ## Getting started (what you need first)
 
 Do these **roughly in order**; later steps depend on earlier ones.
 
-1. **VPS**
-   - Fresh or existing Linux host with a **static-ish public IP**, **sudo**, and outbound internet for images.
-   - Install **Docker Engine** and **Docker Compose v2 plugin**.
-   - Plan **one UDP port per WireGuard stack** you will run (production first; add UAT/dev/test ports when needed). Open them in the **provider firewall** and **`ufw`/`nftables`** (if used).
+1. **VPS — one script (`scripts/vps-bootstrap.sh`)**  
+   Target: **Debian/Ubuntu**. Installs **Git**, **Docker**, **Compose plugin** via `apt`, **clones** this repo into **`VPS_DEPLOY_DIRECTORY`**, seeds **`.env`** from **`.env.example`**. Example:
 
-2. **Directories on the server**
-   - Create deploy roots (example): `/opt/dockerfile-vpn/production` (and later `uat`, `test`, `development` if you use those tiers).
-   - Keys and `.env` with secrets stay **on the server** (or in CI secrets), **not** in Git.
+   ```bash
+   curl -fsSL 'https://raw.githubusercontent.com/panov-id/dockerfile-vpn/main/scripts/vps-bootstrap.sh' | sudo \
+     VPS_DEPLOY_GIT_URL='git@github.com:panov-id/dockerfile-vpn.git' \
+     VPS_DEPLOY_DIRECTORY='/opt/dockerfile-vpn/production' \
+     bash
+   ```
 
-3. **SSH access for automation**
-   - Dedicated **deploy** UNIX user (or role account), **`authorized_keys`** only for the **GitHub Actions** deploy key.
-   - Prefer **restricted key**, non-interactive commands if you harden further later.
-   - Know **`ssh-ed25519` host key** fingerprint for `known_hosts` in Actions.
+   Or from a clone: `sudo VPS_DEPLOY_GIT_URL='…' VPS_DEPLOY_DIRECTORY='/opt/dockerfile-vpn/production' ./scripts/vps-bootstrap.sh`  
+   Variables: **`VPS_GIT_BRANCH`** (default `main`), **`VPS_UNIX_OWNER`**, **`OPEN_UFW_WIREGUARD=true`**, flag **`--skip-clone`** if the repo is already checked out at **`VPS_DEPLOY_DIRECTORY`**.  
+   **Private repo:** the server must authenticate for **`git clone`/`fetch`** (read-only deploy key, etc.).
 
-4. **GitHub repository**
-   - Push this repo (or connect origin), enable **Actions**.
-   - **Branch protection** on `main`: require **pull request**, block force-push; add required checks when workflows exist (PRs run **Compose validate** when compose files change).
-   - Create **[Environments](https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment)** named **`production`** and **`uat`** (pre-releases deploy to `uat`). For each environment add **secrets** `SSH_HOST`, `SSH_USER`, `SSH_PRIVATE_KEY` and a **variable** `DEPLOY_DIRECTORY` (absolute path on the VPS, for example `/opt/dockerfile-vpn/production/` — create that directory once; the deploy step uploads into it).
+2. **Firewall** — open **UDP** for **`WIREGUARD_SERVER_PORT`** (provider + host).
 
-5. **Server-side `.env` (once per environment directory)**
-   - Copy `.env.example` → `.env` in `DEPLOY_DIRECTORY`, set **`WIREGUARD_SERVER_PUBLIC_HOST`** to your VPS DNS name or IP, choose **`WIREGUARD_SERVER_PORT`** / **`WIREGUARD_INTERNAL_SUBNET`** / **`COMPOSE_PROJECT_NAME`** (must differ per stack on one VPS). The linuxserver image generates persistent WireGuard material under `./config` on first start.
+3. **SSH for GitHub Actions** — deploy user + **`authorized_keys`** for the Actions deploy key.
 
-6. **Smoke test before the first “real” release**
-   - On the VPS inside `DEPLOY_DIRECTORY`, run `docker compose up -d` once (same command CI uses later). Confirm a client connects using generated peer files under `config/`.
-   - Publish a **GitHub Release** from a tag on `main` and verify **Deploy published release** copies `docker-compose.yml` / `.env.example` and restarts the stack.
+4. **GitHub** — push this repo, enable **Actions**, **branch protection** on **`main`** (PR-only merges); **[Environments](https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment)** **`production`** / **`uat`**; secrets **`SSH_HOST`**, **`SSH_USER`**, **`SSH_PRIVATE_KEY`**; variable **`DEPLOY_DIRECTORY`** = same absolute path as **`VPS_DEPLOY_DIRECTORY`** on the server (**GitHub Actions** runs **`git fetch --tags`**, **`git checkout` release tag**, **`docker compose up`** there).
+
+5. **Edit server `.env`** — **`WIREGUARD_SERVER_PUBLIC_HOST`**, unique port/subnet/**`COMPOSE_PROJECT_NAME`** per stack on one VPS.
+
+6. **Smoke test** — on VPS: `cd DEPLOY_DIRECTORY && docker compose up -d`; then publish a **Release** — workflow updates the clone to the release **tag** and restarts Compose.
 
 After that, routine work is: **feature branch → PR → merge to `main` → tag → Release (pre-release or stable) → deploy**.
 
@@ -110,11 +108,11 @@ Override env files when needed: **`LOCAL_ENVIRONMENT_FILE`** for `./scripts/loca
 
 - `docker-compose.yml` running **[linuxserver/wireguard](https://docs.linuxserver.io/images/docker-wireguard/)** with values driven by `.env`.
 - **`.github/workflows/compose-validate.yml`** — on PRs touching Compose files, validates **`docker-compose.yml`** with `.env.example` and local merges using **`.env.local.example`** and **`.env.local.stack-b.example`**.
-- **`.github/workflows/deploy-release.yml`** — on **`release` published**, checks out the release tag, **scp**’s `docker-compose.yml` and `.env.example` to **`DEPLOY_DIRECTORY`** on the VPS, then SSH **`docker compose up -d --pull always`**. The job targets GitHub Environment **`uat`** when the release is a **pre-release**, otherwise **`production`**.
+- **`.github/workflows/deploy-release.yml`** — on **`release` published**, SSH to the VPS: **`git fetch --tags`**, **`git checkout`** release tag inside **`DEPLOY_DIRECTORY`**, **`docker compose up -d --pull always`** (no `scp`; server holds a full **git clone**).
 
 **Only you (or your cloud/GitHub account) can do:**
 
-- Create the VPS, install Docker, open **UDP** ports, create **`DEPLOY_DIRECTORY`**, write **`.env`** on the server (never committed).
+- Create the VPS, open **UDP** ports, configure **`.env`** on the server (never committed). **`DEPLOY_DIRECTORY`** is created/populated by **`vps-bootstrap.sh`** or your own clone.
 - Generate GitHub **secrets**, **environment variables**, **branch protection**, and trust **SSH** host keys (optionally extend workflows with `KNOWN_HOSTS` / `ssh-keyscan` hardening).
 - Provider firewall rules and backups.
 
@@ -222,6 +220,7 @@ See **[docs/ROADMAP.md](docs/ROADMAP.md)** for the phased implementation plan (b
 │   ├── local-smoke-check.sh
 │   ├── local-two-stacks-test.sh
 │   ├── interactive-setup.sh   # menu: local checks + optional gh bootstrap
+│   ├── vps-bootstrap.sh       # one-shot Debian/Ubuntu: docker + git clone + .env
 │   └── deploy-from-runner-over-ssh.sh
 └── .github/workflows/
     ├── compose-validate.yml

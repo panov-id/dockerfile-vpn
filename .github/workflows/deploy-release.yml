@@ -13,20 +13,7 @@ jobs:
     environment:
       name: ${{ github.event.release.prerelease && 'uat' || 'production' }}
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.release.tag_name }}
-
-      - name: Copy Compose files to VPS
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: docker-compose.yml,.env.example
-          target: ${{ vars.DEPLOY_DIRECTORY }}
-
-      - name: Restart Docker Compose stack
+      - name: Deploy via SSH (git fetch + checkout tag + compose up)
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.SSH_HOST }}
@@ -35,5 +22,10 @@ jobs:
           script_stop: true
           script: |
             set -euo pipefail
-            cd "${{ vars.DEPLOY_DIRECTORY }}"
+            deploy_directory="${{ vars.DEPLOY_DIRECTORY }}"
+            deploy_directory="${deploy_directory%/}"
+            cd "${deploy_directory}"
+            git config --global --add safe.directory "${deploy_directory}"
+            git fetch origin --tags
+            git checkout "${{ github.event.release.tag_name }}"
             docker compose up -d --pull always

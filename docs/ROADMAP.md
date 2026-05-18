@@ -17,10 +17,8 @@ Step-by-step plan for containerized VPN on a VPS and automated deploy from GitHu
 - **Deploy trigger (fixed):** `on: release: types: [published]` only—no deploy solely from merges to `main`. Workflow files live under `.github/workflows/` (`deploy-release.yml`, `compose-validate.yml`).
 - **Git policy (fixed):** integrate via PR into `main`; protected branch; releases cut from tags on `main`.
 - **Optional multi-env on one VPS:** separate UDP ports, tunnel subnets, directories, and Compose project names; **dev** often local or manual/`workflow_dispatch`, **test** often CI-only or release tags, **UAT** vs production via prerelease or tag naming—see root `README.md` (“Dev / test / UAT on the same VPS”).
-- Workflow jobs such as: **`compose-validate`** on PR (Compose syntax) → **`deploy-release`** on `release` published (scp compose files + remote `docker compose up`).
-- **Implemented deploy path:** **scp** `docker-compose.yml` / `.env.example` to `DEPLOY_DIRECTORY`, then SSH **`docker compose up -d --pull always`** (no `git pull` on the VPS).
-- Alternative later: **`git pull` at release tag** on the VPS, or **build/push custom image** to **`ghcr.io`** — see root `README.md` history / issues if we switch.
-
+- Workflow jobs such as: **`compose-validate`** on PR (Compose syntax) → **`deploy-release`** on `release` published (SSH: **`git fetch --tags`**, **`git checkout`** release tag, **`docker compose up`** in **`DEPLOY_DIRECTORY`**).
+- **Server bootstrap:** **`scripts/vps-bootstrap.sh`** on Debian/Ubuntu installs Docker + clones repo into **`DEPLOY_DIRECTORY`** (see root **`README.md`**).
 - Store **SSH private key**, host, and host key verification material as **repository or environment secrets**; never commit secrets. Use **GitHub Environments** (`uat`, `production`, …) with optional required reviewers for production.
 
 ## 4. Operations
