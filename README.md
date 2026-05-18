@@ -51,6 +51,18 @@ Do these **roughly in order**; later steps depend on earlier ones.
 
 After that, routine work is: **feature branch → PR → merge to `main` → tag → Release (pre-release or stable) → deploy**.
 
+### Interactive wizard (optional)
+
+After cloning/updating the repo on your machine:
+
+```bash
+./scripts/interactive-setup.sh
+```
+
+This menu walks through **Compose validation**, **local Docker smoke**, **VPS / GitHub checklists**, and (if **`gh`** is installed and logged in) **creating environments** and **uploading deploy secrets** via `gh secret` / `gh variable` — nothing sensitive is committed to Git.
+
+**Note:** CI/CD in this repository is **GitHub Actions**. A GitLab mirror would need a separate `.gitlab-ci.yml` if you move hosting later.
+
 ## Local environment (test on your laptop)
 
 **What fits:** the same **Docker Compose + linuxserver/wireguard** stack merged with **`docker-compose.local.yml`**. Persisted keys and peers live under **`LOCAL_WIREGUARD_CONFIG_DIRECTORY`** on the host (defaults to **`./config.local/`**), never mixed with VPS **`./config/`**.
@@ -209,6 +221,7 @@ See **[docs/ROADMAP.md](docs/ROADMAP.md)** for the phased implementation plan (b
 │   ├── local-compose-up.sh
 │   ├── local-smoke-check.sh
 │   ├── local-two-stacks-test.sh
+│   ├── interactive-setup.sh   # menu: local checks + optional gh bootstrap
 │   └── deploy-from-runner-over-ssh.sh
 └── .github/workflows/
     ├── compose-validate.yml
