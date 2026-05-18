@@ -23,25 +23,24 @@ This repository will hold **containerized VPN infrastructure** (a `Dockerfile`, 
 
 Do these **roughly in order**; later steps depend on earlier ones.
 
-1. **VPS — one script (`scripts/vps-bootstrap.sh`)**  
-   Target: **Debian/Ubuntu**. Installs **Git**, **Docker**, **Compose plugin** via `apt`, **clones** this repo into **`VPS_DEPLOY_DIRECTORY`**, seeds **`.env`** from **`.env.example`**. Example:
-
+1. **VPS — Git already installed (recommended flow)**  
    ```bash
-   curl -fsSL 'https://raw.githubusercontent.com/panov-id/dockerfile-vpn/main/scripts/vps-bootstrap.sh' | sudo \
-     VPS_DEPLOY_GIT_URL='git@github.com:panov-id/dockerfile-vpn.git' \
-     VPS_DEPLOY_DIRECTORY='/opt/dockerfile-vpn/production' \
-     bash
+   git clone git@github.com:panov-id/dockerfile-vpn.git
+   cd dockerfile-vpn
+   chmod +x scripts/server-setup-wizard.sh   # if needed
+   ./scripts/server-setup-wizard.sh
    ```
+   The wizard asks whether to use **this clone** as the deploy directory or **clone again** elsewhere, then (on Debian/Ubuntu) can install **Docker + Compose**, fills **`.env`**, optional **ufw**, optional first **`docker compose up`**. At the end it prints the absolute path → paste into GitHub Environment variable **`DEPLOY_DIRECTORY`**.
 
-   Or from a clone: `sudo VPS_DEPLOY_GIT_URL='…' VPS_DEPLOY_DIRECTORY='/opt/dockerfile-vpn/production' ./scripts/vps-bootstrap.sh`  
-   Variables: **`VPS_GIT_BRANCH`** (default `main`), **`VPS_UNIX_OWNER`**, **`OPEN_UFW_WIREGUARD=true`**, flag **`--skip-clone`** if the repo is already checked out at **`VPS_DEPLOY_DIRECTORY`**.  
-   **Private repo:** the server must authenticate for **`git clone`/`fetch`** (read-only deploy key, etc.).
+   **Private repo:** use an SSH URL or HTTPS with credentials your server already has configured.
+
+   **Alternative — non-interactive one-shot:** **`scripts/vps-bootstrap.sh`** (curl or sudo env vars) — see script header.
 
 2. **Firewall** — open **UDP** for **`WIREGUARD_SERVER_PORT`** (provider + host).
 
 3. **SSH for GitHub Actions** — deploy user + **`authorized_keys`** for the Actions deploy key.
 
-4. **GitHub** — push this repo, enable **Actions**, **branch protection** on **`main`** (PR-only merges); **[Environments](https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment)** **`production`** / **`uat`**; secrets **`SSH_HOST`**, **`SSH_USER`**, **`SSH_PRIVATE_KEY`**; variable **`DEPLOY_DIRECTORY`** = same absolute path as **`VPS_DEPLOY_DIRECTORY`** on the server (**GitHub Actions** runs **`git fetch --tags`**, **`git checkout` release tag**, **`docker compose up`** there).
+4. **GitHub** — push this repo, enable **Actions**, **branch protection** on **`main`** (PR-only merges); **[Environments](https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment)** **`production`** / **`uat`**; secrets **`SSH_HOST`**, **`SSH_USER`**, **`SSH_PRIVATE_KEY`**; variable **`DEPLOY_DIRECTORY`** = **exact absolute path** the server wizard printed (same directory where **`docker-compose.yml`** lives — Actions runs **`git fetch --tags`**, **`git checkout` release tag**, **`docker compose up`** there).
 
 5. **Edit server `.env`** — **`WIREGUARD_SERVER_PUBLIC_HOST`**, unique port/subnet/**`COMPOSE_PROJECT_NAME`** per stack on one VPS.
 
@@ -49,9 +48,9 @@ Do these **roughly in order**; later steps depend on earlier ones.
 
 After that, routine work is: **feature branch → PR → merge to `main` → tag → Release (pre-release or stable) → deploy**.
 
-### Interactive wizard (optional)
+### Interactive wizard (optional — your laptop)
 
-After cloning/updating the repo on your machine:
+After cloning/updating the repo on your **development machine**:
 
 ```bash
 ./scripts/interactive-setup.sh
@@ -221,6 +220,7 @@ See **[docs/ROADMAP.md](docs/ROADMAP.md)** for the phased implementation plan (b
 │   ├── local-two-stacks-test.sh
 │   ├── interactive-setup.sh   # menu: local checks + optional gh bootstrap
 │   ├── vps-bootstrap.sh       # one-shot Debian/Ubuntu: docker + git clone + .env
+│   ├── server-setup-wizard.sh # interactive after git clone on VPS
 │   └── deploy-from-runner-over-ssh.sh
 └── .github/workflows/
     ├── compose-validate.yml

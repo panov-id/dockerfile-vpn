@@ -88,15 +88,18 @@ cmd_two_stack_test() {
 cmd_print_vps_checklist() {
   print_separator
   cat <<EOF
-VPS — prefer one script on Debian/Ubuntu (installs git + Docker + clones repo + seeds .env):
+VPS with Git — interactive setup (recommended):
+
+  git clone git@github.com:${REPO_SLUG}.git
+  cd dockerfile-vpn
+  ./scripts/server-setup-wizard.sh
+
+Non-interactive alternative (Debian/Ubuntu, curl | sudo):
 
   curl -fsSL 'https://raw.githubusercontent.com/${REPO_SLUG}/main/scripts/vps-bootstrap.sh' | sudo \\
     VPS_DEPLOY_GIT_URL='git@github.com:${REPO_SLUG}.git' \\
     VPS_DEPLOY_DIRECTORY='/opt/dockerfile-vpn/production' \\
     bash
-
-Then: edit DEPLOY_DIRECTORY/.env, open UDP in cloud firewall, run:
-  cd /opt/dockerfile-vpn/production && docker compose up -d
 
 GitHub Actions deploy only runs git + compose in DEPLOY_DIRECTORY (no scp).
 

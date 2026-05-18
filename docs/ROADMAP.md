@@ -18,7 +18,7 @@ Step-by-step plan for containerized VPN on a VPS and automated deploy from GitHu
 - **Git policy (fixed):** integrate via PR into `main`; protected branch; releases cut from tags on `main`.
 - **Optional multi-env on one VPS:** separate UDP ports, tunnel subnets, directories, and Compose project names; **dev** often local or manual/`workflow_dispatch`, **test** often CI-only or release tags, **UAT** vs production via prerelease or tag naming—see root `README.md` (“Dev / test / UAT on the same VPS”).
 - Workflow jobs such as: **`compose-validate`** on PR (Compose syntax) → **`deploy-release`** on `release` published (SSH: **`git fetch --tags`**, **`git checkout`** release tag, **`docker compose up`** in **`DEPLOY_DIRECTORY`**).
-- **Server bootstrap:** **`scripts/vps-bootstrap.sh`** on Debian/Ubuntu installs Docker + clones repo into **`DEPLOY_DIRECTORY`** (see root **`README.md`**).
+- **Server bootstrap:** **`scripts/vps-bootstrap.sh`** (non-interactive) or **`scripts/server-setup-wizard.sh`** (interactive after `git clone`) on Debian/Ubuntu — see root **`README.md`**.
 - Store **SSH private key**, host, and host key verification material as **repository or environment secrets**; never commit secrets. Use **GitHub Environments** (`uat`, `production`, …) with optional required reviewers for production.
 
 ## 4. Operations

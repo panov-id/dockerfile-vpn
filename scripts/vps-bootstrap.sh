@@ -3,6 +3,8 @@
 ## clone this repository into a deploy directory (unless already present), seed .env,
 ## optionally open WireGuard UDP in ufw.
 ##
+## Prefer **`scripts/server-setup-wizard.sh`** if Git is already on the server and you want an interactive flow after `git clone`.
+##
 ## Run as root: sudo ...
 ##
 ## Typical first run (empty directory — will clone):
