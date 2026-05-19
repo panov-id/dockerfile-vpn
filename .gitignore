@@ -9,3 +9,5 @@
 config/
 config.local/
 config.local.stack-b/
+
+.idea/
