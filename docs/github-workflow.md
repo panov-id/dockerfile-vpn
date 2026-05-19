@@ -19,29 +19,31 @@ Same story as **README → “Your workflow in five steps”**. Day-to-day on fe
 
 ```mermaid
 flowchart LR
-  subgraph dev [Developer]
+  subgraph devflow [Developer]
     FB[feature branch]
-    PR[pull request]
+    PR[PR into dev]
   end
   subgraph github [GitHub]
+    D[dev]
     M[main]
     T[tag on main]
     R[published Release]
   end
   subgraph ci [Actions]
-    CV[compose-validate on PR]
-    WT[wizard-docker-test on PR paths]
-    DEP[deploy-release on Release published]
+    MR[deploy-mr-preview]
+    CV[compose-validate]
+    DEP[deploy-release]
   end
   subgraph vps [VPS]
-    GIT[git checkout tag]
-    DC[docker compose up]
+    ST[dev / mr-N stands]
+    PROD[production / uat]
   end
-  FB --> PR --> M
-  M --> T --> R
+  FB --> PR --> D
+  PR --> MR --> ST
   PR --> CV
-  PR --> WT
-  R --> DEP --> GIT --> DC
+  D --> M
+  M --> T --> R
+  R --> DEP --> PROD
 ```
 
 ## Branches and merges
@@ -73,13 +75,13 @@ See **[docs/stands-on-one-vps.md](stands-on-one-vps.md)** for ports, GitHub Envi
 | [`teardown-mr-preview.yml`](../.github/workflows/teardown-mr-preview.yml) | PR → **`dev`** closed | Removes **mr-&lt;N&gt;** stand |
 | [`stand-layout-validate.yml`](../.github/workflows/stand-layout-validate.yml) | PRs touching stand scripts | Asserts port/subnet layout |
 
-Fix failures on the PR before merging; **`main`** should stay releasable.
+Fix failures on the PR before merging into **`dev`**.
 
 ## Releases and deployment
 
 | Step | Action |
 |------|--------|
-| 1 | Merge completed work to **`main`** |
+| 1 | Merge **`dev` → `main`** when production-ready |
 | 2 | Update [`CHANGELOG.md`](../CHANGELOG.md) (see [Keep a Changelog](https://keepachangelog.com/)) |
 | 3 | Tag the release commit on **`main`** with **SemVer** (`vMAJOR.MINOR.PATCH`) |
 | 4 | Open **GitHub → Releases → Draft**, choose that tag, add notes, **Publish** |
@@ -104,17 +106,19 @@ Configure **`SSH_HOST`**, **`SSH_USER`**, **`SSH_PRIVATE_KEY`**, and **`DEPLOY_D
 
 - **Tags:** `v1.0.0`, `v1.1.0`, … ([Semantic Versioning](https://semver.org/)).
 - **Changelog:** [`CHANGELOG.md`](../CHANGELOG.md).
-- Routine rhythm (also in README): **feature branch → PR → `main` → tag → Release → deploy**.
+- Routine rhythm: **feature → PR to `dev` → MR preview → merge → dev stand**; production: **`dev` → `main` → tag → Release → deploy**.
 
 ## Secrets and variables (reminder)
 
-Nothing secret belongs in Git. On GitHub you store deploy SSH material and set **`DEPLOY_DIRECTORY`**; on the VPS live **`.env`** and WireGuard keys. See the root README **Getting started** and **Security reminders**.
+Nothing secret belongs in Git. Platform secrets live in **`.env.platform`** (launchpad); GitHub stores deploy SSH and **`DEPLOY_DIRECTORY`** per environment; VPS has **`.env`** and WireGuard keys. See README **Quick start**, **[launchpad.md](launchpad.md)**, and **Security reminders**.
 
 ## Where to read more
 
 | Topic | Location |
 |-------|----------|
-| Full setup, firewall, `DEPLOY_DIRECTORY`, smoke tests | [`README.md`](../README.md) |
-| **VPS server wizard** — every question and branch (Russian) | [`docs/server-wizard-user-guide.ru.md`](server-wizard-user-guide.ru.md) |
-| Phased plan / backlog | [`docs/ROADMAP.md`](ROADMAP.md) |
+| Doc index | [`docs/README.md`](README.md) |
+| Platform setup (Docker, no host `gh`) | [`docs/launchpad.md`](launchpad.md) |
+| Full setup, firewall, stands | [`README.md`](../README.md), [`stands-on-one-vps.md`](stands-on-one-vps.md) |
+| **VPS server wizard** — every question (Russian) | [`server-wizard-user-guide.ru.md`](server-wizard-user-guide.ru.md) |
+| Phased plan / backlog | [`ROADMAP.md`](ROADMAP.md) |
 | Multi-tier dev/test/UAT on one VPS | README section **Git workflow** → **Dev / test / UAT on the same VPS** |

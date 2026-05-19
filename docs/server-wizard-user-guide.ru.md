@@ -1,7 +1,9 @@
 # Визард на VPS: как пользоваться (`server-setup-wizard.sh`)
 
 **Скрипт:** `scripts/server-setup-wizard.sh` — только **на сервере** после `git clone`.  
-**Не путать** с `scripts/interactive-setup.sh` на ноутбуке (локальные проверки и меню).
+**Не путать** с `scripts/interactive-setup.sh` на ноутбуке (меню; пункт **8** — launchpad).
+
+**Рекомендуемая первичная настройка с ноутбука:** [`docs/launchpad.md`](launchpad.md) — `./scripts/launchpad-run.sh` и `.env.platform`. Этот визард нужен, если настраиваешь **только VPS вручную** или донастраиваешь один стенд.
 
 Язык подсказок в терминале: **русский**, если `LANG` начинается с `ru`, или явно `WIZARD_LANGUAGE=ru`. Иначе — английский (`WIZARD_LANGUAGE=en`).
 
@@ -12,12 +14,12 @@
 | Шаг | Где | Что делаешь |
 |-----|-----|-------------|
 | **1** | Ноутбук | Разработка, опционально локальный `docker compose` |
-| **2** | GitHub | PR → merge в **`main`** (сам merge **не** деплоит) |
-| **3** | VPS | **`./scripts/server-setup-wizard.sh`** ← этот документ |
-| **4** | GitHub | Тег + **опубликовать Release** → Actions |
+| **2** | GitHub | PR в **`dev`** (MR preview); для prod позже — merge **`dev` → `main`** (сам merge в `main` **не** деплоит) |
+| **3** | Ноутбук + VPS | Обычно **`./scripts/launchpad-run.sh`**; альтернатива на VPS — **`server-setup-wizard.sh`** ← этот документ |
+| **4** | GitHub | Тег на **`main`** + **опубликовать Release** → Actions |
 | **5** | VPS | Checkout тега + `docker compose up` (автоматически из workflow) |
 
-После шага **3** обычный цикл: **1 → 2 → 4 → 5**.
+После шага **3:** фичи **1 → PR в `dev` → merge**; production **merge `dev`→`main` → 4 → 5**.
 
 В начале визард печатает эту же схему. В конце — чеклист для шагов **4–5**.
 

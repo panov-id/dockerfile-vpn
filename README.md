@@ -8,6 +8,25 @@ This repository will hold **containerized VPN infrastructure** (a `Dockerfile`, 
 - Automate delivery from **GitHub Actions**: deploy to the server **only when a GitHub Release is published** (`release`, type `published`). Ordinary merges to `main` do not deploy by themselves.
 - Document ports, firewall expectations, and backup/rekey procedures.
 
+## Quick start (first time on this project)
+
+**Host:** Docker only. **Secrets:** one file `.env.platform` (gitignored).
+
+```bash
+cp .env.platform.example .env.platform
+# Edit: SSH_HOST, SSH_USER, LAUNCHPAD_SSH_PRIVATE_KEY_HOST_PATH, GITHUB_TOKEN, STAND_DNS_ZONE
+./scripts/launchpad-run.sh
+```
+
+Then manually: **DNS** `*.your-zone` → VPS IP, **UDP ports** in cloud firewall — [stands-on-one-vps.md](docs/stands-on-one-vps.md).
+
+| More docs | |
+|-----------|--|
+| All documentation | [docs/README.md](docs/README.md) |
+| Launchpad details | [docs/launchpad.md](docs/launchpad.md) |
+| User journeys (RU) | [docs/user-experience.md](docs/user-experience.md) |
+| Contributing | [CONTRIBUTING.md](CONTRIBUTING.md) |
+
 ## Your workflow in five steps
 
 This repository assumes you move like this:
@@ -15,12 +34,12 @@ This repository assumes you move like this:
 | Step | Where | What you do |
 |------|-------|-------------|
 | **1 — Develop locally** | Your laptop | Edit the repo; optionally run the stack with **`docker-compose.local.yml`** and **`./scripts/local-compose-up.sh`** / **`local-smoke-check.sh`** (nothing hits the VPS yet). |
-| **2 — Put it in Git** | GitHub | Push your branch, open a **pull request**, merge into **`main`**. **Merge does not deploy** by itself. |
-| **3 — Set up the server** | VPS (+ GitHub settings) | **Once per VPS/environment:** clone this repo on the server, run **`./scripts/server-setup-wizard.sh`** (Docker, **`.env`**, optional first **`docker compose up`**). In GitHub: **Actions** + **Environments** (**`production`** / **`uat`**), secrets **`SSH_HOST`**, **`SSH_USER`**, **`SSH_PRIVATE_KEY`**, variable **`DEPLOY_DIRECTORY`** = absolute path the wizard printed. Open **UDP** for WireGuard in cloud + host firewall. Details: [Getting started](#getting-started-what-you-need-first); wizard prompts (Russian): [`docs/server-wizard-user-guide.ru.md`](docs/server-wizard-user-guide.ru.md). |
+| **2 — Put it in Git** | GitHub | Feature work: **PR into `dev`** (MR preview stand deploys automatically). Production path: merge to **`main`** later. **Merge to `main` alone does not deploy.** |
+| **3 — Set up platform** | Laptop + VPS | **Once:** `./scripts/launchpad-run.sh` with **`.env.platform`** — GitHub environments/secrets, **`dev`**/**`test`** branches, VPS stands (`dev`, `test`, `uat`, `production`). Then DNS + UDP firewall. Alternative on VPS only: [`server-setup-wizard.sh`](scripts/server-setup-wizard.sh) — [guide (RU)](docs/server-wizard-user-guide.ru.md). |
 | **4 — Publish a Release** | GitHub | Create a **tag** on **`main`** (e.g. **`v1.1.0`**), open **Releases**, **publish** a Release for that tag ([docs](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository)). **Pre-release** → **`uat`** environment; stable → **`production`** ([`deploy-release.yml`](.github/workflows/deploy-release.yml)). |
 | **5 — See the result on the server** | VPS | The workflow SSHs to **`DEPLOY_DIRECTORY`**, **`git fetch --tags`**, **`git checkout`** the release tag, **`docker compose up -d --pull always`**. Check with **`docker compose ps`** / **`docker compose logs -f wireguard`**. |
 
-**After step 3 is done**, routine delivery to **production** is **1 → 2 → 4 → 5**. Repeat step **3** only for a **new** server or GitHub Environment.
+**After step 3:** feature cycle is **1 → PR to `dev` → MR preview → merge → dev stand**; production is **merge `dev`→`main` → Release (steps 4–5)**. Repeat step **3** only for a new VPS or broken GitHub/VPS wiring.
 
 ### Dev, test, and MR preview (same VPS for now)
 
@@ -66,40 +85,41 @@ How **branches, pull requests, CI, tags, Releases, and deployment** fit together
 - **Docker Engine + Compose plugin** on the VPS — on Debian/Ubuntu usually installed by **`scripts/vps-bootstrap.sh`**; on other systems install manually.
 - A **GitHub** repository with **Actions** enabled. Use **GitHub-hosted runners** (SSH deploy to your VPS over the public internet) or a **self-hosted runner** on the VPS if you prefer jobs to run locally without inbound SSH from GitHub’s cloud.
 
-## Getting started (what you need first)
+## Getting started (checklist)
 
-The **[five-step workflow](#your-workflow-in-five-steps)** above is the overview; below is **checklist detail** for step **3** (server + GitHub wiring) and friends.
+### A. Automated platform setup (recommended)
 
-Do these **roughly in order** the first time; later steps depend on earlier ones.
+See **[Quick start](#quick-start-first-time-on-this-project)** and **[docs/launchpad.md](docs/launchpad.md)**.
 
-1. **VPS — Git already installed (recommended flow)**  
-   ```bash
-   git clone git@github.com:panov-id/dockerfile-vpn.git
-   cd dockerfile-vpn
-   chmod +x scripts/server-setup-wizard.sh   # if needed
-   ./scripts/server-setup-wizard.sh
-   ```
-   The wizard asks whether to use **this clone** as the deploy directory or **clone again** elsewhere, then (on Debian/Ubuntu) can install **Docker + Compose**, fills **`.env`**, optional **ufw**, optional first **`docker compose up`**. At the end it prints the absolute path → paste into GitHub Environment variable **`DEPLOY_DIRECTORY`**.
+Launchpad configures GitHub (`production`, `uat`, `dev`, `test`, `mr-preview`) and bootstraps VPS stands under **`STANDS_ROOT`** (default `/srv/vpn`).
 
-   **Full prompt-by-prompt user guide (Russian):** [`docs/server-wizard-user-guide.ru.md`](docs/server-wizard-user-guide.ru.md) — numbered stages, description + examples per prompt, scenarios A–D. On the VPS, Russian hints appear when `LANG` is `ru*` or `WIZARD_LANGUAGE=ru`. The wizard prints the **5-step workflow**, offers **production / uat / custom** stack presets, and ends with a checklist for **Release** (steps 4–5).
+### B. Manual steps only you can do (outside scripts)
 
-   **Not the same script:** on your **laptop**, **`scripts/interactive-setup.sh`** is only a **menu** (local Compose checks, optional `gh` helpers). It does **not** replace **`server-setup-wizard.sh`** on the VPS.
+| # | Task | Where |
+|---|------|--------|
+| 1 | **DNS:** `*.vpn.example.com` and apex → VPS IP | Domain registrar / Cloudflare |
+| 2 | **Firewall:** UDP 51820–51823, 51900+ for MR | Cloud provider (+ `ufw` on VPS if used) |
+| 3 | **SSH:** deploy user on VPS, public key in `authorized_keys` | VPS (key file path → `LAUNCHPAD_SSH_PRIVATE_KEY_HOST_PATH`) |
+| 4 | **GitHub PAT** with repo + Actions secrets | `GITHUB_TOKEN` in `.env.platform` |
+| 5 | Enable **Actions**, protect **`main`** (and optionally **`dev`**) | GitHub Settings |
 
-   **Private repo:** use an SSH URL or HTTPS with credentials your server already has configured.
+### C. Alternative: VPS-only wizard (no launchpad)
 
-   **Alternative — non-interactive one-shot:** **`scripts/vps-bootstrap.sh`** (curl or sudo env vars) — see script header.
+If the VPS already has Git and you prefer an interactive session on the server:
 
-2. **Firewall** — open **UDP** for **`WIREGUARD_SERVER_PORT`** (provider + host).
+```bash
+git clone git@github.com:panov-id/dockerfile-vpn.git
+cd dockerfile-vpn
+./scripts/server-setup-wizard.sh
+```
 
-3. **SSH for GitHub Actions** — deploy user + **`authorized_keys`** for the Actions deploy key.
+Guide: [`docs/server-wizard-user-guide.ru.md`](docs/server-wizard-user-guide.ru.md). Non-interactive: **`scripts/vps-bootstrap.sh`**.
 
-4. **GitHub** — push this repo, enable **Actions**, **branch protection** on **`main`** (PR-only merges); **[Environments](https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment)** **`production`** / **`uat`**; secrets **`SSH_HOST`**, **`SSH_USER`**, **`SSH_PRIVATE_KEY`**; variable **`DEPLOY_DIRECTORY`** = **exact absolute path** the server wizard printed (same directory where **`docker-compose.yml`** lives — Actions runs **`git fetch --tags`**, **`git checkout` release tag**, **`docker compose up`** there).
+### D. Routine work after setup
 
-5. **Edit server `.env`** — **`WIREGUARD_SERVER_PUBLIC_HOST`**, unique port/subnet/**`COMPOSE_PROJECT_NAME`** per stack on one VPS.
+**Features:** `feature/*` → **PR to `dev`** → test on **`mr-N.your-zone`** → merge → **`dev`** stand updates.
 
-6. **Smoke test** — on VPS: `cd DEPLOY_DIRECTORY && docker compose up -d`; then publish a **Release** — workflow updates the clone to the release **tag** and restarts Compose.
-
-After that, routine work is: **feature branch → PR → merge to `main` → tag → Release (pre-release or stable) → deploy**.
+**Production:** merge **`dev` → `main`** → tag → **publish Release** (pre-release → uat, stable → production).
 
 ## Versioning and releases
 
@@ -116,7 +136,9 @@ After that, routine work is: **feature branch → PR → merge to `main` → tag
 | **Local dev** | Your laptop | **`docker-compose.yml` + `docker-compose.local.yml`** and **`.env.local`**: WireGuard in Docker with state under **`./config.local/`**. Scripts: **`local-compose-*`**, **`local-smoke-check.sh`**, **`local-two-stacks-test.sh`**. No impact on production files. |
 | **Compose CI** | GitHub Actions | **`compose-validate.yml`** runs **`docker compose config`** for production and local env templates on PRs. |
 | **Wizard Docker test** | GitHub Actions / local | **`wizard-docker-test.yml`** on PRs (when wizard/test paths change): builds **`docker/Dockerfile.wizard-test`**, runs **`scripts/test-wizard-docker.sh`** with **`WIZARD_TEST_SKIP_COMPOSE_UP=true`**. Locally the same **`docker/docker-compose.wizard-test.yml`** — full wizard output in your terminal; use **`WIZARD_TEST_SKIP_COMPOSE_UP=true`** below to skip **`compose up`**. |
-| **First VPS setup** | Server | **`git clone`** → **`./scripts/server-setup-wizard.sh`** (interactive) **or** **`vps-bootstrap.sh`** (non-interactive). Produces a **git working tree** used as **`DEPLOY_DIRECTORY`**, a server **`.env`**, and Docker for **`docker compose`**. |
+| **Platform setup** | Laptop | **`./scripts/launchpad-run.sh`** — GitHub + VPS stands from **`.env.platform`** |
+| **MR / dev / test deploy** | GitHub → VPS | **`deploy-mr-preview`**, **`deploy-dev-stand`**, **`deploy-test-stand`** |
+| **First VPS (manual)** | Server | **`server-setup-wizard.sh`** or **`vps-bootstrap.sh`** if not using launchpad |
 | **Runtime deploy** | GitHub → VPS | **`deploy-release.yml`** on **`release` published**: SSH into **`DEPLOY_DIRECTORY`**, **`git fetch --tags`**, **`git checkout`** release tag, **`docker compose up -d --pull always`**. **Pre-release** uses GitHub Environment **`uat`**, stable release uses **`production`** (different secrets / **`DEPLOY_DIRECTORY`** per env). |
 
 ### Integration test: server wizard inside Docker
@@ -156,9 +178,9 @@ After cloning/updating the repo on your **development machine** (this is **not**
 ./scripts/interactive-setup.sh
 ```
 
-This menu walks through **Compose validation**, **local Docker smoke**, **VPS / GitHub checklists**, and (if **`gh`** is installed and logged in) **creating environments** and **uploading deploy secrets** via `gh secret` / `gh variable` — nothing sensitive is committed to Git.
+Menu item **8** runs **`launchpad-run.sh`** (same as recommended setup). Other items: local Compose smoke, checklists, optional legacy **`gh`** upload if installed on host.
 
-For **server** setup after `git clone` on the VPS, use **`./scripts/server-setup-wizard.sh`** and the guide **[`docs/server-wizard-user-guide.ru.md`](docs/server-wizard-user-guide.ru.md)**.
+For **server-only** setup: **`./scripts/server-setup-wizard.sh`** — **[guide (RU)](docs/server-wizard-user-guide.ru.md)**.
 
 **Note:** CI/CD in this repository is **GitHub Actions**. A GitLab mirror would need a separate `.gitlab-ci.yml` if you move hosting later.
 
@@ -217,9 +239,9 @@ Override env files when needed: **`LOCAL_ENVIRONMENT_FILE`** for `./scripts/loca
 
 **Only you (or your cloud/GitHub account) can do:**
 
-- Create the VPS, open **UDP** ports, configure **`.env`** on the server (never committed). **`DEPLOY_DIRECTORY`** is created/populated by **`vps-bootstrap.sh`** or your own clone.
-- Generate GitHub **secrets**, **environment variables**, **branch protection**, and trust **SSH** host keys (optionally extend workflows with `KNOWN_HOSTS` / `ssh-keyscan` hardening).
-- Provider firewall rules and backups.
+- Create the VPS, **DNS** records, **UDP** firewall rules, backups.
+- Fill **`.env.platform`** (secrets) and run **launchpad** once — or configure GitHub/VPS manually.
+- **Branch protection** and PAT/token scopes in GitHub.
 
 No assistant can safely “click through” your VPS provider or GitHub on your behalf without your credentials.
 
@@ -246,8 +268,13 @@ Contributor-oriented overview: **[docs/github-workflow.md](docs/github-workflow.
 
 ### Branching
 
-- **Single integration branch:** `main`.
-- **Direct pushes to `main` are discouraged:** integrate work through **pull requests** (merge requests). Enforce this with **branch protection** on GitHub (require PR, optional required checks).
+| Branch | Role |
+|--------|------|
+| **`dev`** | Feature integration; **PRs target here**; push updates **dev** stand |
+| **`test`** | Optional line; push updates **test** stand |
+| **`main`** | Production-ready; deploy only via **Release** |
+
+Protect **`main`** and **`dev`** with required PRs where possible.
 
 ### When production deploys
 
@@ -284,23 +311,17 @@ Treat **dev**, **test**, **UAT**, and **production** as separate concerns: **iso
 | **Files and keys** | Separate directories (example: `…/production`, `…/uat`, `…/test`, `…/development`), each with its own `.env` and WireGuard material **outside Git**. |
 | **Compose isolation** | `docker compose -p vpn-production`, `-p vpn-uat`, `-p vpn-test`, `-p vpn-development` (or separate compose files). |
 
-#### How this fits “deploy only on **release published**”
+#### How deploy triggers differ by tier
 
-GitHub gives **one** “pre-release” checkbox, so it cannot express **three** staging tiers by that flag alone. Typical patterns:
+| Tier | Trigger | Workflow |
+|------|---------|----------|
+| **MR preview** | PR opened/updated **into `dev`** | `deploy-mr-preview.yml` |
+| **dev** | Push to **`dev`** | `deploy-dev-stand.yml` |
+| **test** | Push to **`test`** | `deploy-test-stand.yml` |
+| **uat** | Release **pre-release** | `deploy-release.yml` |
+| **production** | Stable **Release** | `deploy-release.yml` |
 
-1. **Production + UAT strictly via Releases:** stable tag → **production**; **pre-release** → **UAT** (same as already documented).
-2. **Dev + test without pretending every push is a release:**
-   - **Development:** developers run **Compose locally**, or you allow an **extra** workflow (**`workflow_dispatch`** only) that deploys to the **development** directory on the VPS—still gated (manual button), not on every merge.
-   - **Test:** keep **test** as **CI-only** (lint, `docker compose config`, optional short-lived container checks). No VPS deploy unless you **choose** to also publish a **GitHub Release** aimed at test (for example tags like `v0.0.0-test.1`) so the rule “deploy only from releases” stays literally true for **every** remote stack.
-3. **Tag naming (recommended if every remote tier must ship via a Release):** encode the tier in the tag or release name and branch in the workflow with `if:` conditions, for example:
-   - `v*-dev*` → GitHub Environment **`development`** (same VPS path `…/development`)
-   - `v*-test*` → **`test`**
-   - **Pre-release** stable-looking candidate → **`uat`**
-   - Stable semver without those markers → **`production`**
-
-Use **[GitHub Environments](https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment)** (`development`, `test`, `uat`, `production`) with **scoped secrets** (deploy path, optional different UNIX users). **Production** should have the strictest protection (required reviewers); **development** can be looser.
-
-**Earlier options still apply for UAT vs production only:** pre-release flag, tag convention, manual approval gates—now extended so **dev** and **test** have a defined place (local / CI / optional dispatch / release tags).
+Full reference: **[docs/stands-on-one-vps.md](docs/stands-on-one-vps.md)** and **[docs/github-workflow.md](docs/github-workflow.md)**.
 
 ## Roadmap
 
@@ -317,6 +338,7 @@ See **[docs/ROADMAP.md](docs/ROADMAP.md)** for the phased implementation plan (b
 ├── .env.example
 ├── .env.local.example
 ├── .env.local.stack-b.example
+├── .env.platform.example      # template for launchpad (copy → .env.platform)
 ├── .gitignore
 ├── docker/
 │   ├── Dockerfile.wizard-test
@@ -324,11 +346,13 @@ See **[docs/ROADMAP.md](docs/ROADMAP.md)** for the phased implementation plan (b
 │   ├── docker-compose.wizard-test.yml
 │   └── docker-compose.launchpad.yml
 ├── docs/
-│   ├── ROADMAP.md
-│   ├── github-workflow.md
+│   ├── README.md              # documentation index
+│   ├── launchpad.md
 │   ├── user-experience.md     # UX journeys (Russian)
-│   ├── stands-on-one-vps.md   # dev / test / MR stands, DNS, ports
-│   └── server-wizard-user-guide.ru.md
+│   ├── github-workflow.md
+│   ├── stands-on-one-vps.md
+│   ├── server-wizard-user-guide.ru.md
+│   └── ROADMAP.md
 ├── scripts/
 │   ├── launchpad-run.sh       # setup via container (no gh on host)
 │   ├── setup-platform.sh      # same logic, run inside launchpad or on host
