@@ -226,6 +226,12 @@ merge dev → main
 
 Конфиги пиров лежат в `config/` **внутри каталога стенда** на VPS (не в git).
 
+### Подключение с Debian / GNOME (постоянный профиль)
+
+Один раз импорт в **NetworkManager** (`nmcli`), дальше вкл/выкл из меню сети — без `wg-quick` при каждом входе:
+
+**[debian-wireguard-client.ru.md](debian-wireguard-client.ru.md)** — скачать `peer1.conf`, `nmcli connection import`, переключатель VPN на панели GNOME, автоподключение, безопасность.
+
 ---
 
 ## Путь в production (релиз)
@@ -337,6 +343,7 @@ flowchart TB
 | Локальный VPN | `./scripts/local-compose-up.sh` |
 | Проверить compose | `./scripts/compose-config-check.sh` |
 | Hostname стенда | `STAND_DNS_ZONE=vpn.example.com ./scripts/stand-resolve-public-host.sh mr 42` |
+| Клиент Debian/GNOME | [debian-wireguard-client.ru.md](debian-wireguard-client.ru.md) |
 | Визард на VPS (ручной) | `./scripts/server-setup-wizard.sh` |
 
 ---
@@ -352,3 +359,4 @@ flowchart TB
 | [server-wizard-user-guide.ru.md](server-wizard-user-guide.ru.md) | Каждый вопрос визарда на VPS |
 | [deploy-ssh-key.md](deploy-ssh-key.md) | Deploy-ключ без passphrase (EN) |
 | [launchpad.md](launchpad.md) | Launchpad (EN) |
+| [debian-wireguard-client.ru.md](debian-wireguard-client.ru.md) | Клиент WireGuard на Debian/GNOME (постоянный профиль NM) |

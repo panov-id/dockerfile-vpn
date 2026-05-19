@@ -28,6 +28,7 @@ Then manually: **DNS** `*.your-zone` → VPS IP, **UDP ports** in cloud firewall
 | Deploy SSH key (no passphrase) | [docs/deploy-ssh-key.md](docs/deploy-ssh-key.md) |
 | Launchpad | [docs/launchpad.md](docs/launchpad.md) |
 | User journeys (RU) | [docs/user-experience.md](docs/user-experience.md) |
+| Debian/GNOME client (RU) | [docs/debian-wireguard-client.ru.md](docs/debian-wireguard-client.ru.md) |
 | Contributing | [CONTRIBUTING.md](CONTRIBUTING.md) |
 
 ## Your workflow in five steps
