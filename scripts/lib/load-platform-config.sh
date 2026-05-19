@@ -51,8 +51,8 @@ load_platform_config() {
     GIT_REMOTE_URL="git@github.com:${GITHUB_REPOSITORY_SLUG}.git"
   fi
 
-  if [[ -z "${SSH_HOST:-}" || -z "${SSH_USER:-}" || -z "${SSH_PRIVATE_KEY_FILE:-}" ]]; then
-    echo "Set SSH_HOST, SSH_USER, SSH_PRIVATE_KEY_FILE in ${config_file}" >&2
+  if [[ -z "${SSH_HOST:-}" || -z "${SSH_USER:-}" ]]; then
+    echo "Set SSH_HOST and SSH_USER in ${config_file}" >&2
     return 1
   fi
 
@@ -61,13 +61,30 @@ load_platform_config() {
     return 1
   fi
 
-  SSH_PRIVATE_KEY_FILE="${SSH_PRIVATE_KEY_FILE/#\~/${HOME}}"
-  if [[ ! -f "${SSH_PRIVATE_KEY_FILE}" ]]; then
-    echo "SSH private key not found: ${SSH_PRIVATE_KEY_FILE}" >&2
-    return 1
+  if [[ "${LAUNCHPAD_CONTAINER:-}" == true ]]; then
+    SSH_PRIVATE_KEY_FILE="${SSH_PRIVATE_KEY_FILE:-/run/launchpad/ssh_private_key}"
+    if [[ -z "${GITHUB_TOKEN:-}" ]]; then
+      echo "Set GITHUB_TOKEN in ${config_file} for launchpad (no gh on host)." >&2
+      return 1
+    fi
+  else
+    if [[ -z "${SSH_PRIVATE_KEY_FILE:-}" ]]; then
+      echo "Set SSH_PRIVATE_KEY_FILE in ${config_file}" >&2
+      return 1
+    fi
+    SSH_PRIVATE_KEY_FILE="${SSH_PRIVATE_KEY_FILE/#\~/${HOME}}"
+    if [[ ! -f "${SSH_PRIVATE_KEY_FILE}" ]]; then
+      echo "SSH private key not found: ${SSH_PRIVATE_KEY_FILE}" >&2
+      return 1
+    fi
+    if [[ -z "${GITHUB_TOKEN:-}" ]] && ! command -v gh >/dev/null 2>&1; then
+      echo "Install gh (sudo apt install gh) or set GITHUB_TOKEN in ${config_file}, or use ./scripts/launchpad-run.sh" >&2
+      return 1
+    fi
   fi
 
   export GITHUB_REPOSITORY_SLUG STANDS_ROOT STANDS_TOOLING_DIRECTORY
   export GIT_REMOTE_URL SSH_HOST SSH_USER SSH_PRIVATE_KEY_FILE STAND_DNS_ZONE
   export VPS_STANDS_TO_BOOTSTRAP SETUP_GITHUB SETUP_VPS SETUP_CREATE_BRANCHES SETUP_LOCAL_COMPOSE_CHECK
+  export GITHUB_TOKEN LAUNCHPAD_CONTAINER LAUNCHPAD_SSH_PRIVATE_KEY_HOST_PATH
 }

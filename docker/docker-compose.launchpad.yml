@@ -1,0 +1,18 @@
+# Run platform setup without installing gh/git on the host — only Docker required.
+#
+#   cp .env.platform.example .env.platform   # fill secrets + GITHUB_TOKEN
+#   ./scripts/launchpad-run.sh
+#
+# Host path to SSH private key: LAUNCHPAD_SSH_PRIVATE_KEY_HOST_PATH in .env.platform
+
+services:
+  launchpad:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.launchpad
+    volumes:
+      - ..:/workspace/repo
+      - ../.env.platform:/workspace/repo/.env.platform:ro
+      - ${LAUNCHPAD_SSH_PRIVATE_KEY_HOST_PATH}:/run/launchpad/ssh_private_key:ro
+    environment:
+      LAUNCHPAD_CONTAINER: "true"

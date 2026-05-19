@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Launchpad container** (`docker/Dockerfile.launchpad`, **`./scripts/launchpad-run.sh`**) — run full platform setup from Docker only; **`GITHUB_TOKEN`** in `.env.platform` replaces `gh` on the host.
+- **`docs/user-experience.md`** — user journeys (first setup, MR preview, dev/prod), what is manual vs automated (Russian).
 - **`./scripts/setup-platform.sh`** — one-shot setup from **`.env.platform`** (only SSH + DNS zone required): GitHub envs/secrets/vars, `dev`/`test` branches, VPS stands over SSH.
 - **`.env.platform.example`**, **`scripts/lib/load-platform-config.sh`**, **`scripts/platform-aliases.sh`** (`vpn-setup`), **`scripts/generate-wizard-stdin.sh`**.
 

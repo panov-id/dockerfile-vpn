@@ -66,10 +66,12 @@ Open **every used UDP port** in the cloud provider firewall (and host `ufw` if e
 
 ## GitHub setup (automated)
 
-Run on your laptop (after `cp .env.platform.example .env.platform` and `gh auth login`):
+Run on your laptop (only Docker required on the host):
 
 ```bash
-./scripts/setup-platform.sh
+cp .env.platform.example .env.platform
+# GITHUB_TOKEN, LAUNCHPAD_SSH_PRIVATE_KEY_HOST_PATH, SSH_*, STAND_DNS_ZONE
+./scripts/launchpad-run.sh
 ```
 
 This creates environments, uploads secrets/variables, and bootstraps VPS stands — no manual typing in the GitHub UI.

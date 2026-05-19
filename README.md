@@ -35,22 +35,21 @@ Each stand uses its own **UDP port**, **tunnel subnet**, **Compose project name*
 
 Typical feature flow: branch from **`dev`** → PR to **`dev`** → MR preview stand for manual check → merge → **`dev`** stand updates → later **`main`** + Release for production.
 
-Process detail for contributors: **[docs/github-workflow.md](docs/github-workflow.md)**.
+Process detail for contributors: **[docs/github-workflow.md](docs/github-workflow.md)**. **User experience (journeys, what you see):** **[docs/user-experience.md](docs/user-experience.md)**.
 
 ## One-command platform setup (secrets only)
 
-You only maintain **`.env.platform`** (gitignored). Everything else is scripted.
+You only maintain **`.env.platform`** (gitignored). **Nothing to install on the host except Docker.**
 
 ```bash
 cp .env.platform.example .env.platform
-# Edit: SSH_HOST, SSH_USER, SSH_PRIVATE_KEY_FILE, STAND_DNS_ZONE
-gh auth login   # once
-./scripts/setup-platform.sh
+# Edit: SSH_HOST, SSH_USER, LAUNCHPAD_SSH_PRIVATE_KEY_HOST_PATH, GITHUB_TOKEN, STAND_DNS_ZONE
+./scripts/launchpad-run.sh
 ```
 
-Optional shell alias: `source scripts/platform-aliases.sh` then run **`vpn-setup`**.
+The **launchpad** container includes `gh`, `git`, and `ssh` — it configures **GitHub**, creates **`dev`** / **`test`** branches, and **bootstraps VPS stands** over SSH. See **[docs/stands-on-one-vps.md](docs/stands-on-one-vps.md)** for DNS (`*.vpn.example.com` → VPS).
 
-The script configures **GitHub** (environments `production`, `uat`, `dev`, `test`, `mr-preview` + secrets/variables), creates **`dev`** / **`test`** branches if missing, and **bootstraps stands on the VPS** via SSH. See **[docs/stands-on-one-vps.md](docs/stands-on-one-vps.md)** for DNS (`*.vpn.example.com` → VPS).
+Optional: run **`./scripts/setup-platform.sh`** on the host only if you already have `gh` and prefer not to use the container.
 
 ## Developer workflow (GitHub)
 
@@ -321,15 +320,19 @@ See **[docs/ROADMAP.md](docs/ROADMAP.md)** for the phased implementation plan (b
 ├── .gitignore
 ├── docker/
 │   ├── Dockerfile.wizard-test
-│   └── docker-compose.wizard-test.yml
+│   ├── Dockerfile.launchpad
+│   ├── docker-compose.wizard-test.yml
+│   └── docker-compose.launchpad.yml
 ├── docs/
 │   ├── ROADMAP.md
 │   ├── github-workflow.md
+│   ├── user-experience.md     # UX journeys (Russian)
 │   ├── stands-on-one-vps.md   # dev / test / MR stands, DNS, ports
 │   └── server-wizard-user-guide.ru.md
 ├── scripts/
-│   ├── setup-platform.sh      # one-shot from .env.platform
-│   ├── platform-aliases.sh    # optional: vpn-setup alias
+│   ├── launchpad-run.sh       # setup via container (no gh on host)
+│   ├── setup-platform.sh      # same logic, run inside launchpad or on host
+│   ├── platform-aliases.sh    # optional: vpn-setup → launchpad-run
 │   ├── stand-layout.sh
 │   ├── stand-resolve-public-host.sh
 │   ├── remote/

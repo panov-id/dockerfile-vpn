@@ -2,10 +2,12 @@
 ## One-shot setup from .env.platform — you only edit secrets in that file.
 ##
 ## Prerequisites (once):
-##   cp .env.platform.example .env.platform   # fill SSH_* and STAND_DNS_ZONE
-##   gh auth login                            # once, if not already
+##   cp .env.platform.example .env.platform   # fill secrets
 ##
-## Run:
+## Run (no gh on host — recommended):
+##   ./scripts/launchpad-run.sh
+##
+## Or on host with gh installed:
 ##   ./scripts/setup-platform.sh
 ##
 ## Does: GitHub environments + secrets/variables, dev/test branches, VPS stands
@@ -33,15 +35,31 @@ log_step() {
   printf '\n=== %s ===\n' "$1"
 }
 
-require_gh() {
+ensure_gh_authenticated() {
   if ! command -v gh >/dev/null 2>&1; then
-    echo "Install GitHub CLI: https://cli.github.com/" >&2
+    echo "GitHub CLI (gh) not found. Use ./scripts/launchpad-run.sh instead." >&2
     exit 1
+  fi
+  if [[ -n "${GITHUB_TOKEN:-}" ]]; then
+    echo "${GITHUB_TOKEN}" | gh auth login --with-token 2>/dev/null || true
   fi
   if ! gh auth status >/dev/null 2>&1; then
-    echo "Run once: gh auth login" >&2
+    echo "Run: gh auth login   — or set GITHUB_TOKEN in .env.platform and use launchpad-run.sh" >&2
     exit 1
   fi
+}
+
+ensure_git_push_access() {
+  if [[ -z "${GITHUB_TOKEN:-}" ]]; then
+    return
+  fi
+  local https_remote="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY_SLUG}.git"
+  if git -C "${repository_root}" remote get-url origin >/dev/null 2>&1; then
+    git -C "${repository_root}" remote set-url origin "${https_remote}"
+  else
+    git -C "${repository_root}" remote add origin "${https_remote}"
+  fi
+  export GIT_REMOTE_URL="${https_remote}"
 }
 
 github_ensure_environment() {
@@ -75,7 +93,7 @@ github_apply_stand_variables() {
 
 setup_github() {
   log_step "GitHub: environments, secrets, variables"
-  require_gh
+  ensure_gh_authenticated
 
   local environment_name
   for environment_name in production uat dev test mr-preview; do
@@ -178,7 +196,8 @@ setup_vps() {
 
 setup_git_branches() {
   log_step "Git: ensure dev and test branches exist on origin"
-  require_gh
+  ensure_gh_authenticated
+  ensure_git_push_access
   local base_ref
   base_ref="$(git -C "${repository_root}" rev-parse main 2>/dev/null || git -C "${repository_root}" rev-parse HEAD)"
   for branch_name in dev test; do
