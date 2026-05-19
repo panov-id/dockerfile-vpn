@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **MIT** [LICENSE](LICENSE).
+- README banner ([docs/assets/banner.png](docs/assets/banner.png)), streamlined README structure.
+
 ## [1.2.0] - 2026-05-19
 
 ### Added

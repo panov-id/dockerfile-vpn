@@ -7,6 +7,7 @@
 | [launchpad.md](launchpad.md) | EN | Platform setup in Docker — no `gh` on host |
 | [user-experience.md](user-experience.md) | RU | Journeys: first setup, MR preview, daily work |
 | [debian-wireguard-client.ru.md](debian-wireguard-client.ru.md) | RU | Debian/GNOME: permanent WireGuard via NetworkManager |
+| [assets/banner.png](assets/banner.png) | — | README / social preview image |
 | [github-workflow.md](github-workflow.md) | EN | Branches, CI workflows, Releases |
 | [stands-on-one-vps.md](stands-on-one-vps.md) | EN | dev / test / MR stands, DNS, ports, GitHub variables |
 | [server-wizard-user-guide.ru.md](server-wizard-user-guide.ru.md) | RU | Every prompt in `server-setup-wizard.sh` on VPS |
