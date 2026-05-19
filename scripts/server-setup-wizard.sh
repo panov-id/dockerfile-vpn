@@ -16,6 +16,9 @@ set -euo pipefail
 script_directory="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repository_root="$(cd "${script_directory}/.." && pwd)"
 
+# shellcheck source=lib/vps-docker.sh
+source "${script_directory}/lib/vps-docker.sh"
+
 wizard_language="${WIZARD_LANGUAGE:-}"
 if [[ -z "${wizard_language}" ]] && [[ "${LANG:-}" == ru* ]]; then
   wizard_language="ru"
@@ -96,49 +99,17 @@ run_sudo() {
 }
 
 detect_apt_distro() {
-  if [[ ! -f /etc/os-release ]]; then
-    return 1
-  fi
-  # shellcheck source=/dev/null
-  source /etc/os-release
-  case "${ID:-}" in
-    debian|ubuntu) return 0 ;;
-    *) return 1 ;;
-  esac
+  vps_is_debian_or_ubuntu
 }
 
 install_docker_debian() {
   print_separator
-  if [[ "${wizard_language}" == ru ]]; then
-    echo "Установка Docker Engine и Compose plugin (apt) …"
-  else
-    echo "Installing Docker Engine + Compose plugin (apt) …"
-  fi
-  export DEBIAN_FRONTEND=noninteractive
-  run_sudo apt-get update -y
-  run_sudo apt-get install -y docker.io docker-compose-plugin ca-certificates curl
-  if [[ -d /run/systemd/system ]] && command -v systemctl >/dev/null 2>&1; then
-    run_sudo systemctl enable --now docker || true
-  else
-    if [[ "${wizard_language}" == ru ]]; then
-      echo "(Нет systemd — нужен доступ к демону Docker, например docker.sock на хосте.)"
-    else
-      echo "(No systemd here — ensure Docker daemon is reachable, e.g. via docker.sock on the host.)"
-    fi
-  fi
+  vps_install_docker_via_apt
 }
 
 ensure_user_in_docker_group() {
   local unix_user="$1"
-  if [[ -z "${unix_user}" ]] || ! id "${unix_user}" >/dev/null 2>&1; then
-    return
-  fi
-  run_sudo usermod -aG docker "${unix_user}"
-  if [[ "${wizard_language}" == ru ]]; then
-    echo "Пользователь '${unix_user}' добавлен в группу docker (перелогинься или: newgrp docker)."
-  else
-    echo "User '${unix_user}' added to group 'docker' (re-login or: newgrp docker)."
-  fi
+  vps_ensure_unix_user_in_docker_group "${unix_user}"
 }
 
 apply_env_key_value() {
@@ -357,7 +328,7 @@ ensure_docker_available() {
     "Docker Engine + Compose" \
     "Docker Engine + Compose"
 
-  if docker compose version >/dev/null 2>&1; then
+  if vps_docker_compose_is_available; then
     if [[ "${wizard_language}" == ru ]]; then
       echo "Docker Compose уже доступен."
     else

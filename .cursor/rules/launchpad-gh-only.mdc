@@ -1,0 +1,21 @@
+---
+description: GitHub CLI (gh) exists only in the launchpad Docker container, not on the host
+alwaysApply: true
+---
+
+# `gh` — launchpad container only
+
+This repository does **not** use GitHub CLI on the developer **host**.
+
+- **Do not** recommend: `apt install gh`, `brew install gh`, `gh auth login` on the host, or running `gh secret` / `gh api` / `gh variable` in the user's local shell.
+- **Do** use: `./scripts/launchpad-run.sh` with a filled **`.env.platform`** (`GITHUB_TOKEN`, SSH paths, `STAND_DNS_ZONE`). `gh` runs inside the **launchpad** image (`docker/Dockerfile.launchpad`).
+
+Host fallback exists but is non-default: `./scripts/setup-platform.sh` only if `gh` is already installed and authenticated.
+
+For platform setup, branch push (`dev` / `test`), GitHub environments/secrets — always steer through **launchpad**, not host `gh`.
+
+See **[AGENTS.md](../../AGENTS.md)** and **[docs/launchpad.md](../../docs/launchpad.md)**.
+
+This repo uses **github.com** for PAT and `gh`. Do **not** put a custom `git remote` SSH hostname into `GH_HOST` in `.env.platform`.
+
+Deploy SSH key for launchpad: **no passphrase** — [docs/deploy-ssh-key.md](../../docs/deploy-ssh-key.md).

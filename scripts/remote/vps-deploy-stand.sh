@@ -56,6 +56,12 @@ mkdir -p "${stands_root}"
 
 echo "=== stand deploy: type=${stand_type} directory=${deploy_directory} ref=${git_ref} ==="
 
+if [[ -f "${stands_tooling_directory}/remote/vps-ensure-docker.sh" ]]; then
+  export STANDS_TOOLING_DIRECTORY="${stands_tooling_directory}"
+  export VPS_DOCKER_DEPLOY_UNIX_USER="${VPS_DOCKER_DEPLOY_UNIX_USER:-$(id -un)}"
+  bash "${stands_tooling_directory}/remote/vps-ensure-docker.sh"
+fi
+
 repository_origin_url="${GIT_REMOTE_URL:-}"
 if [[ -z "${repository_origin_url}" ]] && [[ -d "${deploy_directory}/.git" ]]; then
   repository_origin_url="$(git -C "${deploy_directory}" remote get-url origin 2>/dev/null || true)"

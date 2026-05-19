@@ -1,0 +1,35 @@
+name: Launchpad scripts test
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/lib/ssh-deploy-key.sh'
+      - 'scripts/test-ssh-deploy-key.sh'
+      - 'scripts/verify-deploy-ssh-key.sh'
+      - 'docker/launchpad-entrypoint.sh'
+      - 'scripts/lib/vps-docker.sh'
+      - 'scripts/remote/vps-ensure-docker.sh'
+      - '.github/workflows/launchpad-scripts-test.yml'
+  push:
+    branches:
+      - main
+      - dev
+    paths:
+      - 'scripts/lib/ssh-deploy-key.sh'
+      - 'scripts/test-ssh-deploy-key.sh'
+      - 'scripts/verify-deploy-ssh-key.sh'
+      - 'docker/launchpad-entrypoint.sh'
+      - 'scripts/lib/vps-docker.sh'
+      - 'scripts/remote/vps-ensure-docker.sh'
+      - '.github/workflows/launchpad-scripts-test.yml'
+
+jobs:
+  ssh-deploy-key-unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run launchpad script unit tests
+        run: |
+          ./scripts/test-ssh-deploy-key.sh
+          ./scripts/test-vps-docker-lib.sh

@@ -13,7 +13,8 @@ RUN apt-get update \
        > /etc/apt/sources.list.d/github-cli.list \
   && apt-get update \
   && apt-get install -y --no-install-recommends gh \
-  && rm -rf /var/lib/apt/lists/*
+  && rm -rf /var/lib/apt/lists/* \
+  && git config --global --add safe.directory '*'
 
 WORKDIR /workspace/repo
 

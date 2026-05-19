@@ -70,7 +70,8 @@ Run on your laptop (only Docker required on the host):
 
 ```bash
 cp .env.platform.example .env.platform
-# GITHUB_TOKEN, LAUNCHPAD_SSH_PRIVATE_KEY_HOST_PATH, SSH_*, STAND_DNS_ZONE
+# GITHUB_TOKEN, LAUNCHPAD_SSH_PRIVATE_KEY_HOST_PATH (no passphrase), SSH_*, STAND_DNS_ZONE
+# See docs/deploy-ssh-key.md
 ./scripts/launchpad-run.sh
 ```
 

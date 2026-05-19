@@ -6,13 +6,12 @@ On your machine you need **Docker** only — not `gh`, not `git` CLI for setup.
 
 ```bash
 cp .env.platform.example .env.platform
-# Fill: SSH_HOST, SSH_USER, LAUNCHPAD_SSH_PRIVATE_KEY_HOST_PATH, GITHUB_TOKEN, STAND_DNS_ZONE
+# Deploy SSH key without passphrase — docs/deploy-ssh-key.md
+./scripts/verify-deploy-ssh-key.sh
 ./scripts/launchpad-run.sh
 ```
 
-Then at your DNS provider: **`*.vpn.example.com`** and apex → VPS IP; open UDP ports (see [stands-on-one-vps.md](docs/stands-on-one-vps.md)).
-
-Details: **[docs/launchpad.md](docs/launchpad.md)**.
+DNS and firewall: [docs/stands-on-one-vps.md](docs/stands-on-one-vps.md). Launchpad: [docs/launchpad.md](docs/launchpad.md).
 
 ## Daily development
 
@@ -30,6 +29,7 @@ Details: **[docs/launchpad.md](docs/launchpad.md)**.
 | Topic | Link |
 |-------|------|
 | Full doc index | [docs/README.md](docs/README.md) |
+| Deploy SSH key | [docs/deploy-ssh-key.md](docs/deploy-ssh-key.md) |
 | UX (Russian) | [docs/user-experience.md](docs/user-experience.md) |
 | GitHub / CI | [docs/github-workflow.md](docs/github-workflow.md) |
 | Stands & DNS | [docs/stands-on-one-vps.md](docs/stands-on-one-vps.md) |

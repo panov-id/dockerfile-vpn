@@ -1,54 +1,60 @@
 # Launchpad container
 
-Run **full platform setup** without installing `gh`, `git`, or OpenSSH clients on your laptop. The host only needs **Docker** and a filled **`.env.platform`**.
+Run **full platform setup** without installing `gh`, `git`, or OpenSSH on your laptop. You need **Docker** and **`.env.platform`**.
 
 ## Quick start
 
 ```bash
 cp .env.platform.example .env.platform
-```
-
-Edit `.env.platform`:
-
-| Variable | Example |
-|----------|---------|
-| `SSH_HOST` | VPS IP |
-| `SSH_USER` | `deploy` |
-| `LAUNCHPAD_SSH_PRIVATE_KEY_HOST_PATH` | `/home/you/.ssh/vpn_deploy_ed25519` |
-| `GITHUB_TOKEN` | `ghp_…` (classic PAT or fine-grained with repo + Actions secrets) |
-| `STAND_DNS_ZONE` | `vpn.example.com` |
-
-```bash
+# Fill variables (see checklist in the example file)
+./scripts/verify-deploy-ssh-key.sh
 ./scripts/launchpad-run.sh
 ```
 
-## What the container does
+| Variable | Purpose |
+|----------|---------|
+| `SSH_HOST`, `SSH_USER` | VPS target |
+| `LAUNCHPAD_SSH_PRIVATE_KEY_HOST_PATH` | Deploy private key — **[no passphrase](deploy-ssh-key.md)** |
+| `GITHUB_TOKEN` | PAT from [github.com/settings/tokens](https://github.com/settings/tokens) |
+| `STAND_DNS_ZONE` | DNS zone for stands (`dev.zone`, `mr-42.zone`, …) |
 
-1. Builds image `docker/Dockerfile.launchpad` (Debian + `gh` + `git` + `openssh-client`).
-2. Mounts your repo, `.env.platform`, and SSH private key (read-only).
-3. Authenticates `gh` with `GITHUB_TOKEN`.
-4. Runs `scripts/setup-platform.sh` (GitHub envs, VPS stands, optional branch push).
+`GH_HOST` — only for self-hosted GitHub Enterprise; leave unset for **github.com**.
 
-## GitHub token scopes
+## What launchpad runs (order)
 
-Classic PAT: **`repo`**, **`workflow`** (or admin access to configure environments/secrets).
+1. **`dev` / `test` branches** (GitHub API) if missing  
+2. **GitHub Environments** + secrets + variables  
+3. **VPS:** install **Docker + Compose** on Debian/Ubuntu if missing (`docker.io`, `docker-compose-plugin`)  
+4. **VPS stands** (`dev`, `test`, `uat`, `production` by default) — clone + `docker compose up`  
 
-Fine-grained: repository access to this repo, permissions for **Actions**, **Environments**, **Secrets**, **Variables**, **Contents** (read/write for branch push).
+See [stands-on-one-vps.md](stands-on-one-vps.md) for DNS and UDP firewall. Disable auto-install: `SETUP_VPS_INSTALL_DOCKER=false` in `.env.platform`.
 
-## Files
+## GitHub PAT (fine-grained)
 
-| Path | Role |
-|------|------|
-| `docker/docker-compose.launchpad.yml` | Compose service definition |
-| `docker/launchpad-entrypoint.sh` | Token login + invoke setup |
-| `scripts/launchpad-run.sh` | Host wrapper (build + run) |
+For `panov-id/dockerfile-vpn`: **Contents**, **Actions**, **Administration**, **Secrets** — all **Read and write**. Authorize **SSO** for org `panov-id` if required. Details: [user-experience.md](user-experience.md) (PAT section, RU).
+
+## Scripts
+
+| Script | Role |
+|--------|------|
+| `scripts/launchpad-run.sh` | Build image + run setup |
+| `scripts/verify-deploy-ssh-key.sh` | Host check: key without passphrase + SSH login |
+| `scripts/launchpad-diagnose-git.sh` | GitHub branches / PAT diagnostics |
+| `scripts/setup-platform.sh` | Invoked inside container (host fallback if `gh` installed) |
 
 ## Troubleshooting
 
 | Problem | Fix |
 |---------|-----|
-| `LAUNCHPAD_SSH_PRIVATE_KEY_HOST_PATH` empty | Set absolute path to key in `.env.platform` |
-| `gh` permission denied on secrets | Regenerate PAT with repo admin or required scopes |
-| SSH to VPS fails | Key must match `authorized_keys` on VPS; `SSH_HOST` reachable |
+| SSH `Permission denied` | [deploy-ssh-key.md](deploy-ssh-key.md) — key with passphrase or wrong `authorized_keys` |
+| `docker: command not found` on VPS | Re-run launchpad (`SETUP_VPS_INSTALL_DOCKER=true`); or install Docker manually on Debian/Ubuntu |
+| `SSH private key requires a passphrase` | Create key with `-N ''`; run `verify-deploy-ssh-key.sh` |
+| `403` on secrets / environments | PAT: **Secrets** + **Administration** read/write; SSO authorize |
+| `dev` / `test` missing | `./scripts/launchpad-diagnose-git.sh --try-create` |
+| Exits after `GITHUB_TOKEN environment variable` | Rebuild image (`launchpad-run.sh` rebuilds); fixed in entrypoint |
 
-See also: [user-experience.md](user-experience.md), [stands-on-one-vps.md](stands-on-one-vps.md).
+## Related
+
+- [deploy-ssh-key.md](deploy-ssh-key.md)  
+- [user-experience.md](user-experience.md)  
+- [stands-on-one-vps.md](stands-on-one-vps.md)

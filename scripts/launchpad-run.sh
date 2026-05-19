@@ -22,10 +22,9 @@ if [[ ! -f "${repository_root}/.env.platform" ]]; then
   exit 1
 fi
 
+# Load only SSH path on host — do not export GITHUB_TOKEN into docker compose (breaks gh in entrypoint).
 # shellcheck source=/dev/null
-set -a
 source "${repository_root}/.env.platform"
-set +a
 
 launchpad_ssh_key_host_path="${LAUNCHPAD_SSH_PRIVATE_KEY_HOST_PATH:-${SSH_PRIVATE_KEY_FILE:-}}"
 if [[ -z "${launchpad_ssh_key_host_path}" ]]; then
@@ -43,6 +42,9 @@ if ! docker compose version >/dev/null 2>&1; then
   echo "docker compose is required on the host to run the launchpad container." >&2
   exit 1
 fi
+
+echo "=== launchpad: verify deploy SSH key (no passphrase) ==="
+"${repository_root}/scripts/verify-deploy-ssh-key.sh"
 
 echo "=== launchpad: building image (gh + git + ssh inside container) ==="
 docker compose -f "${compose_file}" build launchpad

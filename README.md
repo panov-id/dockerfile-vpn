@@ -15,15 +15,18 @@ This repository will hold **containerized VPN infrastructure** (a `Dockerfile`, 
 ```bash
 cp .env.platform.example .env.platform
 # Edit: SSH_HOST, SSH_USER, LAUNCHPAD_SSH_PRIVATE_KEY_HOST_PATH, GITHUB_TOKEN, STAND_DNS_ZONE
+./scripts/verify-deploy-ssh-key.sh   # optional; launchpad-run.sh runs this too
 ./scripts/launchpad-run.sh
 ```
 
+**SSH key:** dedicated deploy key, **no passphrase** — [docs/deploy-ssh-key.md](docs/deploy-ssh-key.md).  
 Then manually: **DNS** `*.your-zone` → VPS IP, **UDP ports** in cloud firewall — [stands-on-one-vps.md](docs/stands-on-one-vps.md).
 
 | More docs | |
 |-----------|--|
 | All documentation | [docs/README.md](docs/README.md) |
-| Launchpad details | [docs/launchpad.md](docs/launchpad.md) |
+| Deploy SSH key (no passphrase) | [docs/deploy-ssh-key.md](docs/deploy-ssh-key.md) |
+| Launchpad | [docs/launchpad.md](docs/launchpad.md) |
 | User journeys (RU) | [docs/user-experience.md](docs/user-experience.md) |
 | Contributing | [CONTRIBUTING.md](CONTRIBUTING.md) |
 
@@ -56,20 +59,6 @@ Typical feature flow: branch from **`dev`** → PR to **`dev`** → MR preview s
 
 Process detail for contributors: **[docs/github-workflow.md](docs/github-workflow.md)**. **User experience (journeys, what you see):** **[docs/user-experience.md](docs/user-experience.md)**.
 
-## One-command platform setup (secrets only)
-
-You only maintain **`.env.platform`** (gitignored). **Nothing to install on the host except Docker.**
-
-```bash
-cp .env.platform.example .env.platform
-# Edit: SSH_HOST, SSH_USER, LAUNCHPAD_SSH_PRIVATE_KEY_HOST_PATH, GITHUB_TOKEN, STAND_DNS_ZONE
-./scripts/launchpad-run.sh
-```
-
-The **launchpad** container includes `gh`, `git`, and `ssh` — it configures **GitHub**, creates **`dev`** / **`test`** branches, and **bootstraps VPS stands** over SSH. See **[docs/stands-on-one-vps.md](docs/stands-on-one-vps.md)** for DNS (`*.vpn.example.com` → VPS).
-
-Optional: run **`./scripts/setup-platform.sh`** on the host only if you already have `gh` and prefer not to use the container.
-
 ## Developer workflow (GitHub)
 
 How **branches, pull requests, CI, tags, Releases, and deployment** fit together — read **[docs/github-workflow.md](docs/github-workflow.md)** first. The short **[CONTRIBUTING.md](CONTRIBUTING.md)** points to the same doc.
@@ -99,7 +88,7 @@ Launchpad configures GitHub (`production`, `uat`, `dev`, `test`, `mr-preview`) a
 |---|------|--------|
 | 1 | **DNS:** `*.vpn.example.com` and apex → VPS IP | Domain registrar / Cloudflare |
 | 2 | **Firewall:** UDP 51820–51823, 51900+ for MR | Cloud provider (+ `ufw` on VPS if used) |
-| 3 | **SSH:** deploy user on VPS, public key in `authorized_keys` | VPS (key file path → `LAUNCHPAD_SSH_PRIVATE_KEY_HOST_PATH`) |
+| 3 | **SSH:** deploy key **without passphrase** on VPS | [deploy-ssh-key.md](docs/deploy-ssh-key.md), `LAUNCHPAD_SSH_PRIVATE_KEY_HOST_PATH` |
 | 4 | **GitHub PAT** with repo + Actions secrets | `GITHUB_TOKEN` in `.env.platform` |
 | 5 | Enable **Actions**, protect **`main`** (and optionally **`dev`**) | GitHub Settings |
 

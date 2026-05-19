@@ -24,16 +24,104 @@
 
 1. Клонируешь репозиторий на ноутбук.
 2. Копируешь шаблон: `cp .env.platform.example .env.platform`.
-3. Заполняешь секреты в файле: VPS, SSH-ключ (путь на диске), **`GITHUB_TOKEN`** (PAT), зона DNS (`vpn.example.com`).
-4. Запускаешь: **`./scripts/launchpad-run.sh`** — на хосте нужен **только Docker**, без `gh` и без `apt install`.
+3. Заполняешь **`.env.platform`**: VPS, deploy-ключ (**без passphrase**), PAT, DNS — см. **[deploy-ssh-key.md](deploy-ssh-key.md)** и чеклист в `.env.platform.example`.
+4. Проверяешь ключ: **`./scripts/verify-deploy-ssh-key.sh`** (опционально; `launchpad-run.sh` вызывает сам).
+5. Запускаешь: **`./scripts/launchpad-run.sh`** — на хосте только **Docker**.
 
 Контейнер **launchpad** сам ставит внутри себя `gh`/`git`/`ssh` и выполняет настройку.
 
+### Как создать PAT (`GITHUB_TOKEN`)
+
+Токен нужен **один раз** для launchpad: через него внутри контейнера вызываются `gh` (секреты, environments, ветки `dev`/`test`) и при необходимости `git push` по HTTPS.
+
+**Куда вставить:** строка `GITHUB_TOKEN=...` в **`.env.platform`** на ноутбуке. Файл в `.gitignore` — **никогда** не коммить токен.
+
+#### Где живёт репозиторий (веб и PAT)
+
+Этот проект на **GitHub.com** — не путай с произвольным hostname в своём `git remote` по SSH: для launchpad и PAT всегда **github.com**.
+
+| Что | Адрес |
+|-----|--------|
+| Репозиторий | **https://github.com/panov-id/dockerfile-vpn** |
+| PAT (fine-grained) | **https://github.com/settings/personal-access-tokens** |
+| PAT (classic) | **https://github.com/settings/tokens** |
+
+В **`.env.platform`** для обычного GitHub.com **не задавай** `GH_HOST` / `GITHUB_API_URL` (оставь закомментированными в `.env.platform.example`). Они нужны только для **корпоративного** GitHub Enterprise Server с отдельным доменом.
+
+#### Вариант A — Fine-grained PAT (предпочтительно)
+
+1. Открой **https://github.com** → аватар (правый верх) → **Settings**.
+2. Слева внизу: **Developer settings** → **Personal access tokens** → **Fine-grained tokens**.
+3. **Generate new token**.
+4. Заполни:
+   - **Token name** — например `dockerfile-vpn-launchpad` (по имени поймёшь, зачем токен).
+   - **Expiration** — 90 дней или Custom; поставь напоминание обновить до истечения.
+   - **Resource owner** — организация **`panov-id`** (или свой user, если репо под личным аккаунтом).
+   - **Repository access** — **Only select repositories** → выбери **`dockerfile-vpn`**.
+5. **Repository permissions** (минимум для launchpad):
+
+   | Permission | Уровень | Зачем |
+   |------------|---------|--------|
+   | **Contents** | Read and write | push веток `dev` / `test`, clone по HTTPS |
+   | **Metadata** | Read-only | обычно обязателен по умолчанию |
+   | **Actions** | Read and write | workflows, environment **Variables** |
+   | **Administration** | Read and write | создать **Environments** |
+   | **Secrets** | Read and write | `SSH_*` в environments (`403` на `public-key` без этого) |
+
+   Если после запуска launchpad падает на **«failed to create environment»** — добавь права на administration или используй classic PAT (вариант B).
+
+   Если при создании веток **`403 Resource not accessible by personal access token`** — у токена нет **Contents: Read and write** (или не нажат **Configure SSO → Authorize** для организации `panov-id` на странице токена).
+
+6. **Generate token** → **скопируй сразу** (второй раз не покажут). Вставь в `.env.platform`:
+
+   ```bash
+   GITHUB_TOKEN=github_pat_xxxxxxxx
+   ```
+
+#### Вариант B — Classic PAT (проще, шире права)
+
+1. **https://github.com/settings/tokens** → **Generate new token** → **Tokens (classic)** (или сразу classic из Developer settings).
+2. **Generate new token (classic)**.
+3. **Note:** `dockerfile-vpn-launchpad`.
+4. **Expiration** — по политике (90d / custom).
+5. Отметь scope **`repo`** (полный доступ к приватным репозиториям) и **`workflow`** (если просит для Actions).
+6. **Generate token** → скопируй в `GITHUB_TOKEN=ghp_...` в `.env.platform`.
+
+Classic даёт больше прав, чем нужно — удобно для отладки; для продакшн-аккаунта лучше fine-grained с узким списком репозиториев.
+
+#### Проверка, что токен подходит
+
+После сохранения `.env.platform`:
+
+```bash
+./scripts/launchpad-diagnose-git.sh
+```
+
+Ожидаешь в выводе:
+
+- `gh auth status` — **github.com**, не «hostname not found»;
+- список веток с **`main`** (и позже **`dev`**, **`test`**);
+- без `401` / `403` / `Resource not accessible`.
+
+Создать ветки принудительно:
+
+```bash
+./scripts/launchpad-diagnose-git.sh --try-create
+```
+
+Подробнее: [launchpad.md](launchpad.md).
+
+#### Безопасность
+
+- Токен = пароль к репозиторию и секретам CI — не отправляй в чат, не вставляй в issue/PR.
+- Срок действия истёк → сгенерируй новый, обнови `.env.platform`, снова `./scripts/launchpad-run.sh`.
+- Утечка → **Revoke** токен в GitHub Settings и выпусти новый.
+
 ### Что происходит без твоего участия
 
+- На origin появляются ветки **`dev`** и **`test`**, если их ещё не было (сразу в начале прогона).
 - В GitHub создаются **Environments** и заливаются **секреты/переменные** для `production`, `uat`, `dev`, `test`, `mr-preview`.
-- На origin появляются ветки **`dev`** и **`test`**, если их ещё не было.
-- По SSH на VPS: каталоги стендов, clone репозитория, `.env` с правильными портами и hostname, `docker compose up` для выбранных стендов (`dev`, `test`, `uat`, `production` по умолчанию).
+- По SSH на VPS: при необходимости **Docker + Compose** (apt на Debian/Ubuntu), затем каталоги стендов, clone, `.env`, `docker compose up` (`dev`, `test`, `uat`, `production` по умолчанию).
 - Локально (если есть Docker): проверка `docker compose config`.
 
 ### Что остаётся только у тебя (вне скриптов)
@@ -42,7 +130,7 @@
 |----------|-----|--------|
 | DNS `*.vpn.example.com` → IP VPS | Панель регистратора / Cloudflare | Чтобы `mr-42.vpn.example.com` и `dev.vpn.example.com` резолвились |
 | UDP-порты в firewall облака | Hetzner, DO, … | WireGuard ходит по UDP (51820–51823, 51900+ для MR) |
-| `GITHUB_TOKEN` в `.env.platform` | Файл на диске | PAT для GitHub API внутри launchpad (без `gh` на хосте) |
+| `GITHUB_TOKEN` в `.env.platform` | Файл на диске | PAT — см. [Как создать PAT](#как-создать-pat-github_token) |
 
 После этого **повторять setup-platform** нужно только если сменился VPS, ключ или зона DNS.
 
@@ -170,8 +258,8 @@ merge dev → main
 
 | Сценарий | Инструмент | Когда |
 |----------|------------|--------|
-| Полная автоматика | `setup-platform.sh` + `.env.platform` | **Рекомендуется** |
-| Интерактивное меню на ноутбуке | `interactive-setup.sh` | Пункт 8 = тот же setup-platform |
+| Полная автоматика | `./scripts/launchpad-run.sh` + `.env.platform` | **Рекомендуется** |
+| Интерактивное меню на ноутбуке | `interactive-setup.sh` | Пункт 8 → launchpad |
 | Первый VPS вручную по SSH | `server-setup-wizard.sh` | Уже на сервере после `git clone`, пошаговые вопросы |
 | Без вопросов на VPS | `vps-bootstrap.sh` | Root + env vars, один прогон |
 
@@ -191,7 +279,7 @@ flowchart TB
   end
 
   subgraph laptop [Ноутбук]
-    SETUP[setup-platform.sh]
+    SETUP[launchpad-run.sh]
     LOCAL[local-compose / smoke]
   end
 
@@ -242,7 +330,9 @@ flowchart TB
 
 | Задача | Команда |
 |--------|---------|
-| Всё настроить с ноутбука | `./scripts/setup-platform.sh` |
+| Deploy-ключ (без passphrase) | [deploy-ssh-key.md](deploy-ssh-key.md), `verify-deploy-ssh-key.sh` |
+| Всё настроить с ноутбука | `./scripts/launchpad-run.sh` |
+| PAT / ветки | `./scripts/launchpad-diagnose-git.sh` |
 | Алиас | `source scripts/platform-aliases.sh` → `vpn-setup` |
 | Локальный VPN | `./scripts/local-compose-up.sh` |
 | Проверить compose | `./scripts/compose-config-check.sh` |
@@ -260,3 +350,5 @@ flowchart TB
 | [github-workflow.md](github-workflow.md) | Ветки, CI, Release (EN) |
 | [stands-on-one-vps.md](stands-on-one-vps.md) | Порты, DNS, variables |
 | [server-wizard-user-guide.ru.md](server-wizard-user-guide.ru.md) | Каждый вопрос визарда на VPS |
+| [deploy-ssh-key.md](deploy-ssh-key.md) | Deploy-ключ без passphrase (EN) |
+| [launchpad.md](launchpad.md) | Launchpad (EN) |
