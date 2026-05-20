@@ -31,7 +31,7 @@ Secrets and platform setup live in **`.env.platform`** (gitignored). **Each GitH
 
 Teardown VPS only: `TEARDOWN_CONFIRM=yes ./scripts/teardown-platform-run.sh` (does not delete GitHub environments).
 
-Optional host path (only if the user already has `gh` and prefers it): `./scripts/setup-platform.sh` — documented as fallback, not the default.
+**Do not** run `./scripts/setup-platform.sh` on the host — it exits unless `LAUNCHPAD_CONTAINER=true`. **Do not** suggest `server-setup-wizard.sh` or `vps-bootstrap.sh` for platform setup (CI wizard test only).
 
 ## Docker-first execution
 

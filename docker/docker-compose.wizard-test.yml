@@ -10,4 +10,5 @@ services:
     environment:
       WIZARD_TEST_PUBLIC_HOST: "${WIZARD_TEST_PUBLIC_HOST:-203.0.113.50}"
       WIZARD_TEST_SKIP_COMPOSE_UP: "${WIZARD_TEST_SKIP_COMPOSE_UP:-false}"
+      WIZARD_TEST_SKIP_PLATFORM_GUARD: "true"
     command: ["./scripts/test-wizard-docker.sh"]

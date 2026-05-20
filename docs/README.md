@@ -11,7 +11,7 @@
 | [assets/banner.png](assets/banner.png) | — | README / social preview image |
 | [github-workflow.md](github-workflow.md) | EN | Branches, CI workflows, Releases |
 | [stands-on-one-vps.md](stands-on-one-vps.md) | EN | dev / test / MR stands, DNS, ports, GitHub variables |
-| [server-wizard-user-guide.ru.md](server-wizard-user-guide.ru.md) | RU | Every prompt in `server-setup-wizard.sh` on VPS |
+| [server-wizard-user-guide.ru.md](server-wizard-user-guide.ru.md) | RU | Launchpad-first; wizard script CI-only |
 | [ROADMAP.md](ROADMAP.md) | EN | Planned work |
 
 ## Recommended reading order

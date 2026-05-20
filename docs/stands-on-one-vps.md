@@ -81,29 +81,9 @@ cp .env.platform.example .env.platform
 
 This creates environments, uploads **per-environment** secrets/variables, and bootstraps stands listed in each `{PREFIX}_BOOTSTRAP_STANDS`.
 
-### Manual reference (if you skip the script)
+### Manual GitHub UI (not recommended)
 
-Create **Environments**: `dev`, `test`, `mr-preview` (can share the same VPS; secrets may be identical).
-
-**Secrets** (each environment, or repo-wide):
-
-| Secret | Purpose |
-|--------|---------|
-| `SSH_HOST` | VPS address |
-| `SSH_USER` | Deploy user |
-| `SSH_PRIVATE_KEY` | Private key for Actions |
-
-**Variables** (recommended same values in `dev`, `test`, `mr-preview` while on one server):
-
-| Variable | Example | Purpose |
-|----------|---------|---------|
-| `STANDS_ROOT` | `/srv/vpn` | Parent of `dev/`, `test/`, `mr-42/` |
-| `STANDS_TOOLING_DIRECTORY` | `/srv/vpn/_tooling` | CI copies deploy scripts here |
-| `STAND_DNS_ZONE` | `vpn.example.com` | **Preferred.** Per-stand hostnames (`mr-42.vpn.example.com`, `dev.vpn.example.com`, …) |
-| `WIREGUARD_SERVER_PUBLIC_HOST` | _(optional)_ | Fallback if `STAND_DNS_ZONE` is empty (one hostname for all stands) |
-| `GIT_REMOTE_URL` | `git@github.com:panov-id/dockerfile-vpn.git` | Used when creating a new stand clone |
-
-Production/UAT still use **`DEPLOY_DIRECTORY`** in their own environments (see README).
+Use only if launchpad cannot run. Mirror the per-environment values from `.env.platform` into each Environment’s secrets/variables (`SSH_HOST`, `STANDS_ROOT`, `STAND_DNS_ZONE`, …). Production/UAT need **`DEPLOY_DIRECTORY`**.
 
 ## Workflows
 
@@ -123,7 +103,7 @@ sudo mkdir -p /srv/vpn/_tooling
 sudo chown -R deploy:deploy /srv/vpn
 ```
 
-Run the server wizard for the **first** stand, or let the first workflow create clones when `GIT_REMOTE_URL` is set.
+Let the first workflow create clones when `GIT_REMOTE_URL` is set, or run launchpad once to bootstrap stands.
 
 ## Manual checks on the server
 

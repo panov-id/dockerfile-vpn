@@ -3,7 +3,7 @@
 ## clone this repository into a deploy directory (unless already present), seed .env,
 ## optionally open WireGuard UDP in ufw.
 ##
-## Prefer **`scripts/server-setup-wizard.sh`** if Git is already on the server and you want an interactive flow after `git clone`.
+## Not for platform setup — use ./scripts/launchpad-run.sh on your laptop.
 ##
 ## Run as root: sudo ...
 ##
@@ -21,6 +21,11 @@
 ## cloud firewall, then: cd VPS_DEPLOY_DIRECTORY && docker compose up -d
 
 set -euo pipefail
+
+script_directory="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/platform-launchpad-only.sh
+source "${script_directory}/lib/platform-launchpad-only.sh"
+platform_require_launchpad_for_setup || exit 1
 
 skip_clone=false
 if [[ "${1:-}" == "--skip-clone" ]]; then

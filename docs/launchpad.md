@@ -44,7 +44,6 @@ For `panov-id/dockerfile-vpn`: **Contents**, **Actions**, **Administration**, **
 | `scripts/launchpad-diagnose-git.sh` | GitHub branches / PAT diagnostics |
 | `scripts/setup-platform.sh` | Invoked inside container |
 | `scripts/teardown-platform-run.sh` | Remove stands/tooling from VPS (not GitHub) |
-| `scripts/migrate-env-platform-per-environment.sh` | One-time legacy `.env.platform` → per-environment blocks |
 
 ## Troubleshooting
 

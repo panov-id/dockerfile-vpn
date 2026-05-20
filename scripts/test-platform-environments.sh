@@ -20,6 +20,13 @@ assert_equals() {
 assert_equals "PRODUCTION" "$(platform_environment_name_to_prefix production)" "prefix production"
 assert_equals "MR_PREVIEW" "$(platform_environment_name_to_prefix mr-preview)" "prefix mr-preview"
 
+export SSH_HOST=legacy-should-fail
+if platform_environment_reject_legacy_variables; then
+  echo "FAIL: legacy SSH_HOST must be rejected" >&2
+  exit 1
+fi
+unset SSH_HOST
+
 export PLATFORM_ENVIRONMENTS=production,invalid-env
 if platform_environment_validate_names; then
   echo "FAIL: invalid PLATFORM_ENVIRONMENTS must fail" >&2

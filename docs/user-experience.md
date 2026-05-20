@@ -24,7 +24,7 @@
 
 1. Клонируешь репозиторий на ноутбук.
 2. Копируешь шаблон: `cp .env.platform.example .env.platform`.
-3. Заполняешь **`.env.platform`**: для **каждого** GitHub Environment свой блок (`PRODUCTION_*`, `DEV_*`, …) — VPS, ключ (**без passphrase**), DNS. См. **[deploy-ssh-key.md](deploy-ssh-key.md)**, **[multi-server-deployment.md](multi-server-deployment.md)**, `.env.platform.example`. Старый формат с одним `SSH_HOST`: `./scripts/migrate-env-platform-per-environment.sh`.
+3. Заполняешь **`.env.platform`**: для **каждого** GitHub Environment свой блок (`PRODUCTION_*`, `DEV_*`, …) — VPS, ключ (**без passphrase**), DNS. См. **[deploy-ssh-key.md](deploy-ssh-key.md)**, **[multi-server-deployment.md](multi-server-deployment.md)**, `.env.platform.example`. Других путей установки платформы нет.
 4. Проверяешь ключ: **`./scripts/verify-deploy-ssh-key.sh`** (опционально; `launchpad-run.sh` вызывает сам).
 5. Запускаешь: **`./scripts/launchpad-run.sh`** — на хосте только **Docker**.
 
@@ -260,16 +260,9 @@ merge dev → main
 
 ---
 
-## Альтернативные входы (если не setup-platform)
+## Установка платформы
 
-| Сценарий | Инструмент | Когда |
-|----------|------------|--------|
-| Полная автоматика | `./scripts/launchpad-run.sh` + `.env.platform` | **Рекомендуется** |
-| Интерактивное меню на ноутбуке | `interactive-setup.sh` | Пункт 8 → launchpad |
-| Первый VPS вручную по SSH | `server-setup-wizard.sh` | Уже на сервере после `git clone`, пошаговые вопросы |
-| Без вопросов на VPS | `vps-bootstrap.sh` | Root + env vars, один прогон |
-
-Визард на VPS и `setup-platform` **не дублируют** друг друга: platform — с ноутбука «всё сразу»; визард — если настраиваешь сервер отдельно.
+Только **`./scripts/launchpad-run.sh`** и **`.env.platform`**. Меню **`interactive-setup.sh`** — пункт 1 вызывает launchpad; остальное — локальные проверки Compose.
 
 ---
 
@@ -345,7 +338,7 @@ flowchart TB
 | Проверить compose | `./scripts/compose-config-check.sh` |
 | Hostname стенда | `STAND_DNS_ZONE=vpn.example.com ./scripts/stand-resolve-public-host.sh mr 42` |
 | Клиент Debian/GNOME | [debian-wireguard-client.ru.md](debian-wireguard-client.ru.md) |
-| Визард на VPS (ручной) | `./scripts/server-setup-wizard.sh` |
+| Платформа (единственный путь) | `./scripts/launchpad-run.sh` |
 
 ---
 

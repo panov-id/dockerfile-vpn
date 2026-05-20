@@ -54,18 +54,14 @@ load_platform_config() {
     GIT_REMOTE_URL="git@${git_ssh_host}:${GITHUB_REPOSITORY_SLUG}.git"
   fi
 
-  if [[ -z "${GITHUB_TOKEN:-}" ]] && [[ "${LAUNCHPAD_CONTAINER:-}" != true ]] && ! command -v gh >/dev/null 2>&1; then
-    echo "Install gh or set GITHUB_TOKEN in ${config_file}, or use ./scripts/launchpad-run.sh" >&2
-    return 1
-  fi
-
   if [[ "${LAUNCHPAD_CONTAINER:-}" == true && -z "${GITHUB_TOKEN:-}" ]]; then
     echo "Set GITHUB_TOKEN in ${config_file} for launchpad (no gh on host)." >&2
     return 1
   fi
 
-  if [[ -n "${SSH_HOST:-}" ]]; then
-    echo "Warning: legacy SSH_HOST in .env.platform is ignored — use PRODUCTION_SSH_HOST, DEV_SSH_HOST, …" >&2
+  if ! platform_environment_reject_legacy_variables; then
+    echo "Platform setup runs only via ./scripts/launchpad-run.sh" >&2
+    return 1
   fi
 
   if ! platform_environment_validate_names; then

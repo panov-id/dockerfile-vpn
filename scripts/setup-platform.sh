@@ -7,8 +7,7 @@
 ## Run (no gh on host — recommended):
 ##   ./scripts/launchpad-run.sh
 ##
-## Or on host with gh installed:
-##   ./scripts/setup-platform.sh
+## Invoked only from the launchpad container (./scripts/launchpad-run.sh).
 ##
 ## Does: GitHub environments + secrets/variables (per-environment from .env.platform),
 ## dev/test branches, VPS stands via SSH, local compose validate.
@@ -22,6 +21,12 @@ cd "${repository_root}"
 source "${repository_root}/scripts/lib/load-platform-config.sh"
 # shellcheck source=lib/git-launchpad.sh
 source "${repository_root}/scripts/lib/git-launchpad.sh"
+if [[ "${LAUNCHPAD_CONTAINER:-}" != true ]]; then
+  echo "Platform setup runs only inside the launchpad container." >&2
+  echo "  ./scripts/launchpad-run.sh" >&2
+  exit 1
+fi
+
 load_platform_config "${repository_root}"
 
 layout_script="${repository_root}/scripts/stand-layout.sh"
@@ -55,22 +60,16 @@ platform_ssh_use_environment() {
 
 ensure_gh_authenticated() {
   if ! command -v gh >/dev/null 2>&1; then
-    echo "GitHub CLI (gh) not found. Use ./scripts/launchpad-run.sh instead." >&2
+    echo "GitHub CLI (gh) not found in launchpad container." >&2
     exit 1
   fi
-  if [[ -n "${GITHUB_TOKEN:-}" ]]; then
-    export GH_TOKEN="${GITHUB_TOKEN}"
-    if [[ "${LAUNCHPAD_CONTAINER:-}" == true ]]; then
-      if ! gh api user --jq .login >/dev/null 2>&1; then
-        echo "GITHUB_TOKEN in .env.platform is invalid or lacks API access." >&2
-        exit 1
-      fi
-      return 0
-    fi
-    echo "${GITHUB_TOKEN}" | gh auth login --with-token 2>/dev/null || true
+  if [[ -z "${GITHUB_TOKEN:-}" ]]; then
+    echo "Set GITHUB_TOKEN in .env.platform." >&2
+    exit 1
   fi
-  if ! gh auth status >/dev/null 2>&1; then
-    echo "Run: gh auth login   — or set GITHUB_TOKEN in .env.platform and use launchpad-run.sh" >&2
+  export GH_TOKEN="${GITHUB_TOKEN}"
+  if ! gh api user --jq .login >/dev/null 2>&1; then
+    echo "GITHUB_TOKEN in .env.platform is invalid or lacks API access." >&2
     exit 1
   fi
 }

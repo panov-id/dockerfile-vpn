@@ -1,39 +1,20 @@
 #!/usr/bin/env bash
-## Interactive menu after you clone or pull this repo.
-## Runs locally on your machine; no secrets are written into Git — optional uploads use `gh` CLI only.
+## Local helper menu (Compose smoke, two-stack test). Platform setup is launchpad-only.
 ##
-## Usage:
 ##   ./scripts/interactive-setup.sh
-##
-## Note: deploy workflows are GitHub Actions (not GitLab CI). For GitLab you would mirror steps in `.gitlab-ci.yml` separately.
 
 set -uo pipefail
 
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${repository_root}"
 
-repository_slug_from_origin() {
-  local url
-  if ! url="$(git remote get-url origin 2>/dev/null)"; then
-    echo "panov-id/dockerfile-vpn"
-    return
-  fi
-  url="${url%.git}"
-  if [[ "${url}" == https://github.com/* ]]; then
-    echo "${url#https://github.com/}"
-    return
-  fi
-  if [[ "${url}" == git@* ]]; then
-    echo "${url#*:}"
-    return
-  fi
-  echo "panov-id/dockerfile-vpn"
-}
-
-REPO_SLUG="$(repository_slug_from_origin)"
-
 print_separator() {
   printf '%s\n' "────────────────────────────────────────"
+}
+
+cmd_launchpad() {
+  print_separator
+  exec "${repository_root}/scripts/launchpad-run.sh"
 }
 
 cmd_validate_compose() {
@@ -85,147 +66,33 @@ cmd_two_stack_test() {
   bash "${repository_root}/scripts/local-two-stacks-test.sh"
 }
 
-cmd_print_vps_checklist() {
-  print_separator
-  cat <<EOF
-VPS with Git — interactive setup (recommended):
-
-  git clone git@github.com:${REPO_SLUG}.git
-  cd dockerfile-vpn
-  ./scripts/server-setup-wizard.sh
-
-Non-interactive alternative (Debian/Ubuntu, curl | sudo):
-
-  curl -fsSL 'https://raw.githubusercontent.com/${REPO_SLUG}/main/scripts/vps-bootstrap.sh' | sudo \\
-    VPS_DEPLOY_GIT_URL='git@github.com:${REPO_SLUG}.git' \\
-    VPS_DEPLOY_DIRECTORY='/opt/dockerfile-vpn/production' \\
-    bash
-
-GitHub Actions deploy only runs git + compose in DEPLOY_DIRECTORY (no scp).
-
-Repository slug: ${REPO_SLUG}
-EOF
-}
-
-cmd_print_github_manual() {
-  print_separator
-  local base_url="https://github.com/${REPO_SLUG}"
-  cat <<EOF
-GitHub (this repo uses GitHub Actions, not GitLab CI):
-
-  • Actions settings: ${base_url}/settings/actions
-  • Environments:    ${base_url}/settings/environments
-
-Create environments: production  and  uat
-
-Per environment add Secrets:
-  SSH_HOST           — VPS hostname or IP
-  SSH_USER           — UNIX user for deploy (e.g. deploy)
-  SSH_PRIVATE_KEY    — private key matching public key in that user's ~/.ssh/authorized_keys
-
-Per environment add Variable:
-  DEPLOY_DIRECTORY   — absolute path ending with / (e.g. /opt/dockerfile-vpn/production/)
-
-Branch protection: ${base_url}/settings/branches  → protect main (require PR).
-
-First deploy: publish a Release from a tag on main (pre-release → uat, stable → production).
-
-Workflow file: .github/workflows/deploy-release.yml
-EOF
-}
-
-cmd_github_create_environments() {
-  print_separator
-  if ! command -v gh >/dev/null 2>&1; then
-    echo "Install GitHub CLI: https://cli.github.com/"
-    return 1
-  fi
-  if ! gh auth status >/dev/null 2>&1; then
-    echo "Run: gh auth login"
-    return 1
-  fi
-  local environment_name
-  for environment_name in production uat; do
-    echo "Creating environment '${environment_name}' on ${REPO_SLUG} …"
-    if gh api --method PUT "repos/${REPO_SLUG}/environments/${environment_name}" >/dev/null 2>&1; then
-      echo "  OK: ${environment_name}"
-    else
-      echo "  Failed (need repo admin?). Create '${environment_name}' manually in the UI." >&2
-    fi
-  done
-}
-
-cmd_github_push_secrets_one_environment() {
-  print_separator
-  if ! command -v gh >/dev/null 2>&1; then
-    echo "Install GitHub CLI: https://cli.github.com/"
-    return 1
-  fi
-  if ! gh auth status >/dev/null 2>&1; then
-    echo "Run: gh auth login"
-    return 1
-  fi
-  local environment_name
-  read -r -p "GitHub environment name [production]: " environment_name
-  environment_name="${environment_name:-production}"
-  local ssh_host ssh_user key_path deploy_directory
-
-  read -r -p "SSH_HOST (VPS hostname or IP): " ssh_host
-  read -r -p "SSH_USER: " ssh_user
-  read -r -p "Path to SSH private key file on this machine: " key_path
-  read -r -p "DEPLOY_DIRECTORY on VPS (e.g. /opt/dockerfile-vpn/production/): " deploy_directory
-
-  if [[ -z "${ssh_host}" || -z "${ssh_user}" || -z "${key_path}" || -z "${deploy_directory}" ]]; then
-    echo "All fields are required." >&2
-    return 1
-  fi
-  if [[ ! -f "${key_path}" ]]; then
-    echo "Key file not found: ${key_path}" >&2
-    return 1
-  fi
-
-  echo "Uploading secrets to ${REPO_SLUG} environment '${environment_name}' …"
-  gh secret set SSH_HOST --repo "${REPO_SLUG}" --env "${environment_name}" --body "${ssh_host}"
-  gh secret set SSH_USER --repo "${REPO_SLUG}" --env "${environment_name}" --body "${ssh_user}"
-  gh secret set SSH_PRIVATE_KEY --repo "${REPO_SLUG}" --env "${environment_name}" < "${key_path}"
-  gh variable set DEPLOY_DIRECTORY --repo "${REPO_SLUG}" --env "${environment_name}" --body "${deploy_directory}"
-  echo "Done. Repeat for the other environment (e.g. uat) with its DEPLOY_DIRECTORY."
-}
-
 show_main_menu() {
   cat <<EOF
 
 Repository root: ${repository_root}
-Detected GitHub repo slug: ${REPO_SLUG}
+
+Platform setup (GitHub + VPS stands): only ./scripts/launchpad-run.sh
 
 Choose:
-  8) Run full platform setup from .env.platform (recommended — ./scripts/setup-platform.sh)
-  1) Validate Compose templates (docker compose config)
-  2) Create/update .env.local from example + optional smoke check
-  3) Two-stack local integration test (needs Docker)
-  4) Print VPS checklist (SSH / directories / firewall)
-  5) Print GitHub manual checklist (open Settings URLs)
-  6) GitHub: create environments production + uat (needs gh + repo admin)
-  7) GitHub: upload SSH secrets + DEPLOY_DIRECTORY variable for one environment (needs gh)
+  1) Run launchpad (full platform setup from .env.platform)
+  2) Validate Compose templates (docker compose config)
+  3) Create/update .env.local from example + optional smoke check
+  4) Two-stack local integration test (needs Docker)
   0) Exit
 
 EOF
 }
 
 main() {
-  echo "dockerfile-vpn — interactive setup (GitHub Actions deploy)"
+  echo "dockerfile-vpn — local helpers (platform setup = launchpad only)"
   while true; do
     show_main_menu
-    read -r -p "Enter choice [0-8]: " choice
+    read -r -p "Enter choice [0-4]: " choice
     case "${choice:-}" in
-      8) bash "${repository_root}/scripts/setup-platform.sh" ;;
-      1) cmd_validate_compose ;;
-      2) cmd_prepare_local_smoke ;;
-      3) cmd_two_stack_test ;;
-      4) cmd_print_vps_checklist ;;
-      5) cmd_print_github_manual ;;
-      6) cmd_github_create_environments ;;
-      7) cmd_github_push_secrets_one_environment ;;
+      1) cmd_launchpad ;;
+      2) cmd_validate_compose ;;
+      3) cmd_prepare_local_smoke ;;
+      4) cmd_two_stack_test ;;
       0) echo "Bye."; exit 0 ;;
       *) echo "Unknown choice." ;;
     esac

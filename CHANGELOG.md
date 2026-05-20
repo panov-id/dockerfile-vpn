@@ -9,15 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Per-environment platform config** in `.env.platform` (`PRODUCTION_*`, `DEV_*`, …) — no global `SSH_HOST` fallback; multi-server support ([docs/multi-server-deployment.md](docs/multi-server-deployment.md)).
-- **`scripts/teardown-platform-run.sh`** / **`scripts/remote/vps-teardown-platform.sh`** — remove stands, MR dirs, and tooling from VPS (GitHub unchanged).
-- **`scripts/migrate-env-platform-per-environment.sh`** — one-time migration from legacy single-host `.env.platform`.
-- **`scripts/lib/platform-environments.sh`**, **`scripts/test-platform-environments.sh`**.
+- **Per-environment platform config** in `.env.platform` (`PRODUCTION_*`, `DEV_*`, …); multi-server ([docs/multi-server-deployment.md](docs/multi-server-deployment.md)).
+- **`scripts/teardown-platform-run.sh`** / **`scripts/remote/vps-teardown-platform.sh`** — remove stands from VPS (GitHub unchanged).
+- **`scripts/lib/platform-environments.sh`**, **`scripts/lib/platform-launchpad-only.sh`**, **`scripts/test-platform-environments.sh`**.
 
 ### Changed
 
-- **Launchpad** stages one SSH key file per environment under `.launchpad-keys-staging/`.
-- **`setup-platform.sh`** configures GitHub and VPS per environment; groups VPS steps by physical server.
+- **Platform setup is launchpad-only:** `./scripts/setup-platform.sh` refuses to run outside the launchpad container; legacy `.env.platform` variables (`SSH_HOST`, `LAUNCHPAD_SSH_PRIVATE_KEY_HOST_PATH`, …) are rejected.
+- **`server-setup-wizard.sh`** / **`vps-bootstrap.sh`** exit with a pointer to launchpad (except CI wizard test).
+- **`interactive-setup.sh`** — local Compose helpers only; item 1 runs launchpad.
+- Removed **`migrate-env-platform-per-environment.sh`**.
 
 ### Added (earlier unreleased)
 

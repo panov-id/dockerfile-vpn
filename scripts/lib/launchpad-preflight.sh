@@ -17,9 +17,8 @@ launchpad_preflight_host() {
   # shellcheck source=platform-environments.sh
   source "${repository_root}/scripts/lib/platform-environments.sh"
 
-  if [[ -n "${SSH_HOST:-}" ]]; then
-    echo "Warning: legacy SSH_HOST in .env.platform is ignored — use PRODUCTION_SSH_HOST, DEV_SSH_HOST, …" >&2
-    echo "  Run ./scripts/migrate-env-platform-per-environment.sh or remove SSH_HOST manually." >&2
+  if ! platform_environment_reject_legacy_variables; then
+    return 1
   fi
 
   if ! platform_environment_validate_names; then

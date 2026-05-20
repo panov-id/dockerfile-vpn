@@ -12,6 +12,30 @@
 ##   BOOTSTRAP_STANDS — comma list (dev,test,uat,production) for launchpad VPS bootstrap;
 ##                      empty = skip stand deploy on that server (typical for mr-preview).
 
+## Fail if deprecated single-host variables are still set in .env.platform.
+platform_environment_reject_legacy_variables() {
+  local legacy_variable_name
+  local -a legacy_names=(
+    SSH_HOST
+    SSH_USER
+    SSH_PRIVATE_KEY_FILE
+    LAUNCHPAD_SSH_PRIVATE_KEY_HOST_PATH
+    STANDS_ROOT
+    STANDS_TOOLING_DIRECTORY
+    STAND_DNS_ZONE
+    VPS_STANDS_TO_BOOTSTRAP
+  )
+  local failures=0
+  for legacy_variable_name in "${legacy_names[@]}"; do
+    if [[ -n "${!legacy_variable_name:-}" ]]; then
+      echo "Remove legacy variable ${legacy_variable_name} from .env.platform." >&2
+      echo "  Use per-environment blocks: PRODUCTION_SSH_HOST, PRODUCTION_SSH_PRIVATE_KEY_HOST_PATH, … (see .env.platform.example)." >&2
+      failures=$((failures + 1))
+    fi
+  done
+  [[ "${failures}" -eq 0 ]]
+}
+
 platform_environment_default_names() {
   printf '%s\n' production uat dev test mr-preview
 }

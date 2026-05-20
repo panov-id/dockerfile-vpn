@@ -15,12 +15,12 @@ Step-by-step plan for containerized VPN on a VPS and automated deploy from GitHu
 ## 3. GitHub Actions → VPS
 
 - **Developer-facing summary:** [`docs/github-workflow.md`](github-workflow.md) (branches, PRs, CI, Releases, `uat` vs `production`).
-- **Server setup wizard (all prompts):** [`docs/server-wizard-user-guide.ru.md`](server-wizard-user-guide.ru.md) (Russian walkthrough for [`scripts/server-setup-wizard.sh`](../scripts/server-setup-wizard.sh)).
+- **Platform setup:** [`docs/launchpad.md`](launchpad.md) — `./scripts/launchpad-run.sh` only.
 - **Deploy trigger (fixed):** `on: release: types: [published]` only—no deploy solely from merges to `main`. Workflow files live under `.github/workflows/` (`deploy-release.yml`, `compose-validate.yml`).
 - **Git policy (fixed):** feature PRs into **`dev`**; MR preview stands; merge **`dev` → `main`** for production; releases from tags on **`main`**.
 - **Multi-env on one VPS (implemented):** `dev` / `test` / MR preview stands + release deploy to **uat** / **production** — see [`stands-on-one-vps.md`](stands-on-one-vps.md) and launchpad setup in [`launchpad.md`](launchpad.md).
 - Workflow jobs such as: **`compose-validate`** on PR (Compose syntax) → **`deploy-release`** on `release` published (SSH: **`git fetch --tags`**, **`git checkout`** release tag, **`docker compose up`** in **`DEPLOY_DIRECTORY`**).
-- **Server bootstrap:** **`scripts/vps-bootstrap.sh`** (non-interactive) or **`scripts/server-setup-wizard.sh`** (interactive after `git clone`) on Debian/Ubuntu — see root **`README.md`**.
+- **Server bootstrap:** launchpad on laptop; **`server-setup-wizard.sh`** retained for CI wizard test only.
 - Store **SSH private key**, host, and host key verification material as **repository or environment secrets**; never commit secrets. Use **GitHub Environments** (`uat`, `production`, …) with optional required reviewers for production.
 
 ## 4. Operations

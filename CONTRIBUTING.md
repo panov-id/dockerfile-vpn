@@ -33,7 +33,7 @@ DNS and firewall: [docs/stands-on-one-vps.md](docs/stands-on-one-vps.md). Launch
 | UX (Russian) | [docs/user-experience.md](docs/user-experience.md) |
 | GitHub / CI | [docs/github-workflow.md](docs/github-workflow.md) |
 | Stands & DNS | [docs/stands-on-one-vps.md](docs/stands-on-one-vps.md) |
-| VPS wizard (Russian) | [docs/server-wizard-user-guide.ru.md](docs/server-wizard-user-guide.ru.md) |
+| Multi-server | [docs/multi-server-deployment.md](docs/multi-server-deployment.md) |
 | Repository overview | [README.md](README.md) |
 
 ## Commits and PRs

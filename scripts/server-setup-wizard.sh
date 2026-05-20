@@ -3,10 +3,8 @@
 ## Interactive server bootstrap (workflow step 3 of 5): deploy directory, Docker, .env,
 ## optional ufw, optional first `docker compose up`. Prints DEPLOY_DIRECTORY for GitHub.
 ##
-## Typical flow:
-##   git clone git@github.com:panov-id/dockerfile-vpn.git
-##   cd dockerfile-vpn
-##   ./scripts/server-setup-wizard.sh
+## Not used for platform setup — use ./scripts/launchpad-run.sh on your laptop.
+## Retained for CI wizard-docker-test only (WIZARD_TEST_SKIP_PLATFORM_GUARD=true).
 ##
 ## Language: English by default; Russian help if LANG starts with "ru" or WIZARD_LANGUAGE=ru.
 ## User guide (Russian): docs/server-wizard-user-guide.ru.md
@@ -14,6 +12,10 @@
 set -euo pipefail
 
 script_directory="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/platform-launchpad-only.sh
+source "${script_directory}/lib/platform-launchpad-only.sh"
+platform_require_launchpad_for_setup || exit 1
+
 repository_root="$(cd "${script_directory}/.." && pwd)"
 
 # shellcheck source=lib/vps-docker.sh

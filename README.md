@@ -91,19 +91,9 @@ Details: **[docs/github-workflow.md](docs/github-workflow.md)** · journeys (RU)
 | [docs/github-workflow.md](docs/github-workflow.md) | EN | Branches, CI, releases |
 | [docs/user-experience.md](docs/user-experience.md) | RU | Day-to-day UX |
 | [docs/debian-wireguard-client.ru.md](docs/debian-wireguard-client.ru.md) | RU | Debian/GNOME client |
-| [docs/server-wizard-user-guide.ru.md](docs/server-wizard-user-guide.ru.md) | RU | VPS wizard prompts |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | EN | Contributor entry |
 
----
-
-## Alternatives to launchpad
-
-| Tool | When |
-|------|------|
-| [`./scripts/launchpad-run.sh`](scripts/launchpad-run.sh) | **Recommended** — full platform from laptop |
-| [`./scripts/interactive-setup.sh`](scripts/interactive-setup.sh) | Menu on laptop (item 8 → launchpad) |
-| [`./scripts/server-setup-wizard.sh`](scripts/server-setup-wizard.sh) | Interactive setup **on the VPS** after `git clone` |
-| [`./scripts/vps-bootstrap.sh`](scripts/vps-bootstrap.sh) | Non-interactive VPS bootstrap |
+**Platform setup (GitHub + VPS stands):** only [`./scripts/launchpad-run.sh`](scripts/launchpad-run.sh) with [`.env.platform`](.env.platform.example). Local helpers: [`interactive-setup.sh`](scripts/interactive-setup.sh) (Compose smoke only).
 
 ---
 
