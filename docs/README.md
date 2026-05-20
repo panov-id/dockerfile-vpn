@@ -5,6 +5,7 @@
 | [../README.md](../README.md) | EN | Overview, quick start, repository layout |
 | [deploy-ssh-key.md](deploy-ssh-key.md) | EN | VPS deploy key — **no passphrase** (launchpad + Actions) |
 | [launchpad.md](launchpad.md) | EN | Platform setup in Docker — no `gh` on host |
+| [multi-server-deployment.md](multi-server-deployment.md) | EN | Per-environment VPS settings in `.env.platform` |
 | [user-experience.md](user-experience.md) | RU | Journeys: first setup, MR preview, daily work |
 | [debian-wireguard-client.ru.md](debian-wireguard-client.ru.md) | RU | Debian/GNOME: permanent WireGuard via NetworkManager |
 | [assets/banner.png](assets/banner.png) | — | README / social preview image |

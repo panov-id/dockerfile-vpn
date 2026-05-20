@@ -35,7 +35,7 @@ Each stand has its own **UDP port**, **tunnel subnet**, **Compose project name**
 git clone https://github.com/panov-id/dockerfile-vpn.git
 cd dockerfile-vpn
 cp .env.platform.example .env.platform
-# Edit: SSH_HOST, SSH_USER, LAUNCHPAD_SSH_PRIVATE_KEY_HOST_PATH, GITHUB_TOKEN, STAND_DNS_ZONE
+# Edit: GITHUB_TOKEN + each PRODUCTION_*, UAT_*, DEV_*, TEST_*, MR_PREVIEW_* block
 ./scripts/verify-deploy-ssh-key.sh   # optional; launchpad-run.sh runs this too
 ./scripts/launchpad-run.sh
 ```
@@ -83,6 +83,7 @@ Details: **[docs/github-workflow.md](docs/github-workflow.md)** · journeys (RU)
 |----------|----------|--------|
 | [docs/README.md](docs/README.md) | — | Index |
 | [docs/launchpad.md](docs/launchpad.md) | EN | Launchpad container |
+| [docs/multi-server-deployment.md](docs/multi-server-deployment.md) | EN | Per-environment VPS in `.env.platform` |
 | [docs/deploy-ssh-key.md](docs/deploy-ssh-key.md) | EN | Deploy key (no passphrase) |
 | [docs/stands-on-one-vps.md](docs/stands-on-one-vps.md) | EN | Ports, DNS, GitHub variables |
 | [docs/github-workflow.md](docs/github-workflow.md) | EN | Branches, CI, releases |

@@ -10,8 +10,8 @@
 ## Or on host with gh installed:
 ##   ./scripts/setup-platform.sh
 ##
-## Does: GitHub environments + secrets/variables, dev/test branches, VPS stands
-## (dev, test, uat, production) via SSH, local compose validate.
+## Does: GitHub environments + secrets/variables (per-environment from .env.platform),
+## dev/test branches, VPS stands via SSH, local compose validate.
 
 set -euo pipefail
 
@@ -30,13 +30,27 @@ remote_deploy_script="${repository_root}/scripts/remote/vps-deploy-stand.sh"
 remote_teardown_script="${repository_root}/scripts/remote/vps-teardown-stand.sh"
 remote_ensure_docker_script="${repository_root}/scripts/remote/vps-ensure-docker.sh"
 vps_docker_library_script="${repository_root}/scripts/lib/vps-docker.sh"
+remote_teardown_platform_script="${repository_root}/scripts/remote/vps-teardown-platform.sh"
 
-ssh_common_options=(-o StrictHostKeyChecking=accept-new -o BatchMode=yes -i "${SSH_PRIVATE_KEY_FILE}")
-ssh_target="${SSH_USER}@${SSH_HOST}"
-scp_common_options=(-o StrictHostKeyChecking=accept-new -i "${SSH_PRIVATE_KEY_FILE}")
+ssh_common_options=()
+scp_common_options=()
+ssh_target=""
+active_platform_environment=""
 
 log_step() {
   printf '\n=== %s ===\n' "$1"
+}
+
+platform_ssh_use_environment() {
+  local environment_name="$1"
+  local ssh_host ssh_user ssh_key_file
+  ssh_host="$(platform_environment_require "${environment_name}" "SSH_HOST")"
+  ssh_user="$(platform_environment_require "${environment_name}" "SSH_USER")"
+  ssh_key_file="$(platform_environment_ssh_private_key_file "${environment_name}")"
+  active_platform_environment="${environment_name}"
+  ssh_common_options=(-o StrictHostKeyChecking=accept-new -o BatchMode=yes -i "${ssh_key_file}")
+  scp_common_options=(-o StrictHostKeyChecking=accept-new -i "${ssh_key_file}")
+  ssh_target="${ssh_user}@${ssh_host}"
 }
 
 ensure_gh_authenticated() {
@@ -142,17 +156,25 @@ EOF
 
 github_apply_ssh_secrets() {
   local environment_name="$1"
-  github_secret_set SSH_HOST --repo "${GITHUB_REPOSITORY_SLUG}" --env "${environment_name}" --body "${SSH_HOST}"
-  github_secret_set SSH_USER --repo "${GITHUB_REPOSITORY_SLUG}" --env "${environment_name}" --body "${SSH_USER}"
-  github_secret_set SSH_PRIVATE_KEY --repo "${GITHUB_REPOSITORY_SLUG}" --env "${environment_name}" < "${SSH_PRIVATE_KEY_FILE}"
+  local ssh_host ssh_user ssh_key_file
+  ssh_host="$(platform_environment_require "${environment_name}" "SSH_HOST")"
+  ssh_user="$(platform_environment_require "${environment_name}" "SSH_USER")"
+  ssh_key_file="$(platform_environment_ssh_private_key_file "${environment_name}")"
+  github_secret_set SSH_HOST --repo "${GITHUB_REPOSITORY_SLUG}" --env "${environment_name}" --body "${ssh_host}"
+  github_secret_set SSH_USER --repo "${GITHUB_REPOSITORY_SLUG}" --env "${environment_name}" --body "${ssh_user}"
+  github_secret_set SSH_PRIVATE_KEY --repo "${GITHUB_REPOSITORY_SLUG}" --env "${environment_name}" < "${ssh_key_file}"
 }
 
 github_apply_stand_variables() {
   local environment_name="$1"
-  local deploy_directory="${2:-}"
-  github_variable_set STANDS_ROOT --repo "${GITHUB_REPOSITORY_SLUG}" --env "${environment_name}" --body "${STANDS_ROOT}"
-  github_variable_set STANDS_TOOLING_DIRECTORY --repo "${GITHUB_REPOSITORY_SLUG}" --env "${environment_name}" --body "${STANDS_TOOLING_DIRECTORY}"
-  github_variable_set STAND_DNS_ZONE --repo "${GITHUB_REPOSITORY_SLUG}" --env "${environment_name}" --body "${STAND_DNS_ZONE}"
+  local stands_root stands_tooling_directory stand_dns_zone deploy_directory
+  stands_root="$(platform_environment_require "${environment_name}" "STANDS_ROOT")"
+  stands_tooling_directory="$(platform_environment_require "${environment_name}" "STANDS_TOOLING_DIRECTORY")"
+  stand_dns_zone="$(platform_environment_require "${environment_name}" "STAND_DNS_ZONE")"
+  deploy_directory="$(platform_environment_deploy_directory "${environment_name}" 2>/dev/null || true)"
+  github_variable_set STANDS_ROOT --repo "${GITHUB_REPOSITORY_SLUG}" --env "${environment_name}" --body "${stands_root}"
+  github_variable_set STANDS_TOOLING_DIRECTORY --repo "${GITHUB_REPOSITORY_SLUG}" --env "${environment_name}" --body "${stands_tooling_directory}"
+  github_variable_set STAND_DNS_ZONE --repo "${GITHUB_REPOSITORY_SLUG}" --env "${environment_name}" --body "${stand_dns_zone}"
   github_variable_set GIT_REMOTE_URL --repo "${GITHUB_REPOSITORY_SLUG}" --env "${environment_name}" --body "${GIT_REMOTE_URL}"
   if [[ -n "${deploy_directory}" ]]; then
     github_variable_set DEPLOY_DIRECTORY --repo "${GITHUB_REPOSITORY_SLUG}" --env "${environment_name}" --body "${deploy_directory}"
@@ -165,14 +187,15 @@ setup_github() {
 
   local environment_name
   local environment_failures=()
-  for environment_name in production uat dev test mr-preview; do
+  while IFS= read -r environment_name; do
+    [[ -z "${environment_name}" ]] && continue
     if ! github_ensure_environment "${environment_name}"; then
       environment_failures+=("${environment_name}")
       if [[ "${SETUP_GITHUB_STRICT:-true}" == true ]]; then
         return 1
       fi
     fi
-  done
+  done < <(platform_environment_list)
   if [[ ${#environment_failures[@]} -gt 0 ]]; then
     echo "  skipped secrets for missing environments: ${environment_failures[*]}" >&2
     echo "  fix PAT or create environments in UI, then re-run ./scripts/launchpad-run.sh" >&2
@@ -181,123 +204,164 @@ setup_github() {
     fi
   fi
 
-  local production_directory="${STANDS_ROOT}/production"
-  local uat_directory="${STANDS_ROOT}/uat"
-
   github_configure_environment_if_present() {
     local environment_name="$1"
-    local deploy_directory="${2:-}"
     if [[ " ${environment_failures[*]} " == *" ${environment_name} "* ]]; then
       echo "  skip ${environment_name} (environment missing)"
       return 0
     fi
     echo "Configuring ${environment_name} …"
     github_apply_ssh_secrets "${environment_name}"
-    github_apply_stand_variables "${environment_name}" "${deploy_directory}"
+    github_apply_stand_variables "${environment_name}"
   }
 
-  github_configure_environment_if_present "dev"
-  github_configure_environment_if_present "test"
-  github_configure_environment_if_present "mr-preview"
-
-  github_configure_environment_if_present "uat" "${uat_directory}"
-  github_configure_environment_if_present "production" "${production_directory}"
+  while IFS= read -r environment_name; do
+    [[ -z "${environment_name}" ]] && continue
+    github_configure_environment_if_present "${environment_name}"
+  done < <(platform_environment_list)
 
   echo "GitHub setup done for ${GITHUB_REPOSITORY_SLUG}"
 }
 
 upload_tooling_to_vps() {
-  log_step "VPS: upload deploy scripts"
+  local stands_tooling_directory="$1"
   ssh "${ssh_common_options[@]}" "${ssh_target}" \
-    "mkdir -p '${STANDS_TOOLING_DIRECTORY}/remote' '${STANDS_TOOLING_DIRECTORY}/lib'"
+    "mkdir -p '${stands_tooling_directory}/remote' '${stands_tooling_directory}/lib'"
   scp "${scp_common_options[@]}" \
     "${layout_script}" \
     "${resolve_host_script}" \
-    "${ssh_target}:${STANDS_TOOLING_DIRECTORY}/"
+    "${ssh_target}:${stands_tooling_directory}/"
   scp "${scp_common_options[@]}" \
     "${vps_docker_library_script}" \
-    "${ssh_target}:${STANDS_TOOLING_DIRECTORY}/lib/"
+    "${ssh_target}:${stands_tooling_directory}/lib/"
   scp "${scp_common_options[@]}" \
     "${remote_deploy_script}" \
     "${remote_teardown_script}" \
     "${remote_ensure_docker_script}" \
-    "${ssh_target}:${STANDS_TOOLING_DIRECTORY}/remote/"
+    "${remote_teardown_platform_script}" \
+    "${ssh_target}:${stands_tooling_directory}/remote/"
   ssh "${ssh_common_options[@]}" "${ssh_target}" \
-    "chmod +x '${STANDS_TOOLING_DIRECTORY}/stand-layout.sh' '${STANDS_TOOLING_DIRECTORY}/stand-resolve-public-host.sh' '${STANDS_TOOLING_DIRECTORY}/lib/vps-docker.sh' '${STANDS_TOOLING_DIRECTORY}/remote/vps-deploy-stand.sh' '${STANDS_TOOLING_DIRECTORY}/remote/vps-teardown-stand.sh' '${STANDS_TOOLING_DIRECTORY}/remote/vps-ensure-docker.sh'"
+    "chmod +x '${stands_tooling_directory}/stand-layout.sh' '${stands_tooling_directory}/stand-resolve-public-host.sh' '${stands_tooling_directory}/lib/vps-docker.sh' '${stands_tooling_directory}/remote/vps-deploy-stand.sh' '${stands_tooling_directory}/remote/vps-teardown-stand.sh' '${stands_tooling_directory}/remote/vps-ensure-docker.sh' '${stands_tooling_directory}/remote/vps-teardown-platform.sh'"
 }
 
 ensure_vps_docker_engine() {
+  local environment_name="$1"
+  local stands_tooling_directory ssh_user
   if [[ "${SETUP_VPS_INSTALL_DOCKER:-true}" != true ]]; then
     echo "  SETUP_VPS_INSTALL_DOCKER=false — skipping Docker install on VPS"
     return 0
   fi
-  log_step "VPS: ensure Docker Engine + Compose (Debian/Ubuntu apt)"
+  stands_tooling_directory="$(platform_environment_require "${environment_name}" "STANDS_TOOLING_DIRECTORY")"
+  ssh_user="$(platform_environment_require "${environment_name}" "SSH_USER")"
+  log_step "VPS [${environment_name}]: ensure Docker Engine + Compose (${ssh_target})"
   ssh "${ssh_common_options[@]}" "${ssh_target}" \
-    "export STANDS_TOOLING_DIRECTORY='${STANDS_TOOLING_DIRECTORY}'; export VPS_DOCKER_DEPLOY_UNIX_USER='${SSH_USER}'; bash '${STANDS_TOOLING_DIRECTORY}/remote/vps-ensure-docker.sh'"
+    "export STANDS_TOOLING_DIRECTORY='${stands_tooling_directory}'; export VPS_DOCKER_DEPLOY_UNIX_USER='${ssh_user}'; bash '${stands_tooling_directory}/remote/vps-ensure-docker.sh'"
 }
 
 run_remote_stand_deploy() {
-  local stand_type="$1"
-  local git_ref="$2"
-  local pull_request_number="${3:-}"
+  local environment_name="$1"
+  local stand_type="$2"
+  local git_ref="$3"
+  local pull_request_number="${4:-}"
 
-  export STAND_DNS_ZONE
+  platform_ssh_use_environment "${environment_name}"
+
+  local stands_root stands_tooling_directory stand_dns_zone
+  stands_root="$(platform_environment_require "${environment_name}" "STANDS_ROOT")"
+  stands_tooling_directory="$(platform_environment_require "${environment_name}" "STANDS_TOOLING_DIRECTORY")"
+  stand_dns_zone="$(platform_environment_require "${environment_name}" "STAND_DNS_ZONE")"
+
   local public_host
   if [[ "${stand_type}" == mr ]]; then
-    public_host="$(STAND_DNS_ZONE="${STAND_DNS_ZONE}" "${resolve_host_script}" mr "${pull_request_number}")"
+    public_host="$(STAND_DNS_ZONE="${stand_dns_zone}" "${resolve_host_script}" mr "${pull_request_number}")"
   else
-    public_host="$(STAND_DNS_ZONE="${STAND_DNS_ZONE}" "${resolve_host_script}" "${stand_type}")"
+    public_host="$(STAND_DNS_ZONE="${stand_dns_zone}" "${resolve_host_script}" "${stand_type}")"
   fi
 
-  log_step "VPS: deploy stand '${stand_type}' (${public_host})"
+  log_step "VPS [${environment_name}]: deploy stand '${stand_type}' (${public_host}) on ${ssh_target}"
 
   local remote_command
   remote_command=$(cat <<EOF
 set -euo pipefail
-export STANDS_ROOT='${STANDS_ROOT}'
-export STANDS_TOOLING_DIRECTORY='${STANDS_TOOLING_DIRECTORY}'
+export STANDS_ROOT='${stands_root}'
+export STANDS_TOOLING_DIRECTORY='${stands_tooling_directory}'
 export STAND_TYPE='${stand_type}'
 export GIT_REF='${git_ref}'
 export GIT_REMOTE_URL='${GIT_REMOTE_URL}'
 export WIREGUARD_SERVER_PUBLIC_HOST='${public_host}'
-export STAND_DNS_ZONE='${STAND_DNS_ZONE}'
+export STAND_DNS_ZONE='${stand_dns_zone}'
 EOF
 )
   if [[ "${stand_type}" == mr ]]; then
     remote_command+=$(printf "\nexport PULL_REQUEST_NUMBER='%s'" "${pull_request_number}")
   fi
-  remote_command+=$'\nbash "${STANDS_TOOLING_DIRECTORY}/remote/vps-deploy-stand.sh"\n'
+  remote_command+=$'\nbash "${stands_tooling_directory}/remote/vps-deploy-stand.sh"\n'
 
   ssh "${ssh_common_options[@]}" "${ssh_target}" "${remote_command}"
 }
 
-setup_vps() {
-  upload_tooling_to_vps
-  ensure_vps_docker_engine
+bootstrap_stands_for_environment() {
+  local environment_name="$1"
+  local bootstrap_stands="${2:-}"
+  local stands_list stand_type git_ref
 
-  local stands_list="${VPS_STANDS_TO_BOOTSTRAP//,/ }"
-  local stand_type
-  for stand_type in ${stands_list}; do
+  bootstrap_stands="${bootstrap_stands//,/ }"
+  [[ -z "${bootstrap_stands// }" ]] && return 0
+
+  for stand_type in ${bootstrap_stands}; do
     stand_type="$(echo "${stand_type}" | tr -d ' ')"
     [[ -z "${stand_type}" ]] && continue
     case "${stand_type}" in
       dev|test|uat|production)
-        local git_ref="${stand_type}"
+        git_ref="${stand_type}"
         if [[ "${stand_type}" == uat || "${stand_type}" == production ]]; then
           git_ref="main"
         fi
-        run_remote_stand_deploy "${stand_type}" "${git_ref}"
+        run_remote_stand_deploy "${environment_name}" "${stand_type}" "${git_ref}"
         ;;
       *)
-        echo "Unknown stand in VPS_STANDS_TO_BOOTSTRAP: ${stand_type}" >&2
+        echo "Unknown stand in ${environment_name} BOOTSTRAP_STANDS: ${stand_type}" >&2
         exit 1
         ;;
     esac
   done
+}
+
+setup_vps_for_server() {
+  local server_id="$1"
+  local representative_environment
+  representative_environment="$(platform_environment_first_for_server "${server_id}")"
+  platform_ssh_use_environment "${representative_environment}"
+
+  local stands_tooling_directory
+  stands_tooling_directory="$(platform_environment_require "${representative_environment}" "STANDS_TOOLING_DIRECTORY")"
+
+  log_step "VPS server ${ssh_target} (via environment ${representative_environment})"
+  upload_tooling_to_vps "${stands_tooling_directory}"
+  ensure_vps_docker_engine "${representative_environment}"
+}
+
+setup_vps() {
+  declare -A vps_servers_prepared=()
+  local server_id environment_name bootstrap_stands
+
+  while IFS=$'\t' read -r server_id environment_name; do
+    [[ -z "${server_id}" ]] && continue
+    if [[ -z "${vps_servers_prepared[${server_id}]:-}" ]]; then
+      setup_vps_for_server "${server_id}"
+      vps_servers_prepared["${server_id}"]=1
+    fi
+    bootstrap_stands="$(platform_environment_bootstrap_stands "${environment_name}")"
+    bootstrap_stands_for_environment "${environment_name}" "${bootstrap_stands}"
+  done < <(platform_environment_list_server_bindings)
 
   echo ""
-  echo "DNS reminder: point *.${STAND_DNS_ZONE} and ${STAND_DNS_ZONE} to ${SSH_HOST}"
-  echo "Open UDP ports from: ${layout_script} dev|test|mr <N> (and production/uat ports)"
+  echo "DNS reminder (per environment):"
+  while IFS= read -r environment_name; do
+    [[ -z "${environment_name}" ]] && continue
+    echo "  ${environment_name}: *.$(platform_environment_require "${environment_name}" STAND_DNS_ZONE) and apex → $(platform_environment_require "${environment_name}" SSH_HOST)"
+  done < <(platform_environment_list)
+  echo "Open UDP ports: ${layout_script} dev|test|mr <N> (see docs/stands-on-one-vps.md)"
 }
 
 create_branch_on_origin() {
@@ -390,9 +454,14 @@ run_local_compose_check() {
 }
 
 main() {
+  local environment_name
   echo "dockerfile-vpn — setup-platform (from .env.platform)"
   echo "Repository: ${GITHUB_REPOSITORY_SLUG}"
-  echo "VPS: ${ssh_target}  DNS zone: ${STAND_DNS_ZONE}  stands: ${VPS_STANDS_TO_BOOTSTRAP}"
+  echo "GitHub environments:"
+  while IFS= read -r environment_name; do
+    [[ -z "${environment_name}" ]] && continue
+    echo "  ${environment_name}: $(platform_environment_require "${environment_name}" SSH_USER)@$(platform_environment_require "${environment_name}" SSH_HOST) bootstrap=[$(platform_environment_bootstrap_stands "${environment_name}")]"
+  done < <(platform_environment_list)
   echo "Steps: SETUP_CREATE_BRANCHES=${SETUP_CREATE_BRANCHES} SETUP_GITHUB=${SETUP_GITHUB} SETUP_VPS=${SETUP_VPS} SETUP_LOCAL_COMPOSE_CHECK=${SETUP_LOCAL_COMPOSE_CHECK}"
 
   # Branches first: setup_github can fail (secrets/admin) and must not skip dev/test
@@ -417,11 +486,12 @@ main() {
   cat <<EOF
 
 Next steps (no scripts required):
-  • DNS: wildcard *.${STAND_DNS_ZONE} → ${SSH_HOST}
+  • DNS: point each environment's STAND_DNS_ZONE (and wildcard) to its SSH_HOST
   • Open UDP ports on cloud firewall (see docs/stands-on-one-vps.md)
   • Work on a feature branch → PR into dev → MR preview deploys automatically
   • Merge to dev → dev stand updates on push
   • Release on main → production / uat deploy
+  • Teardown VPS: ./scripts/teardown-platform-run.sh
 
 Config file: ${repository_root}/.env.platform (edit and re-run this script anytime)
 EOF

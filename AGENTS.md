@@ -21,13 +21,15 @@ Project-specific rules for humans and AI agents working in this repository.
 
 ```bash
 cp .env.platform.example .env.platform
-# Fill GITHUB_TOKEN, SSH_*, STAND_DNS_ZONE, LAUNCHPAD_SSH_PRIVATE_KEY_HOST_PATH
+# Fill GITHUB_TOKEN + each PRODUCTION_*, UAT_*, DEV_*, TEST_*, MR_PREVIEW_* block
 ./scripts/launchpad-run.sh
 ```
 
-Secrets and platform setup live in **`.env.platform`** (gitignored). The PAT is consumed **inside** the launchpad container.
+Secrets and platform setup live in **`.env.platform`** (gitignored). **Each GitHub Environment has its own `{PREFIX}_*` variables** — no global `SSH_HOST` fallback. See [docs/multi-server-deployment.md](docs/multi-server-deployment.md).
 
-**`LAUNCHPAD_SSH_PRIVATE_KEY_HOST_PATH`** must point to a deploy private key **without a passphrase** (no ssh-agent in Docker). See [docs/deploy-ssh-key.md](docs/deploy-ssh-key.md). Run `./scripts/verify-deploy-ssh-key.sh` before launchpad.
+**`{PREFIX}_SSH_PRIVATE_KEY_HOST_PATH`** — deploy key **without a passphrase**. See [docs/deploy-ssh-key.md](docs/deploy-ssh-key.md). Run `./scripts/verify-deploy-ssh-key.sh` before launchpad.
+
+Teardown VPS only: `TEARDOWN_CONFIRM=yes ./scripts/teardown-platform-run.sh` (does not delete GitHub environments).
 
 Optional host path (only if the user already has `gh` and prefers it): `./scripts/setup-platform.sh` — documented as fallback, not the default.
 

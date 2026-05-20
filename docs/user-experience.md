@@ -24,7 +24,7 @@
 
 1. Клонируешь репозиторий на ноутбук.
 2. Копируешь шаблон: `cp .env.platform.example .env.platform`.
-3. Заполняешь **`.env.platform`**: VPS, deploy-ключ (**без passphrase**), PAT, DNS — см. **[deploy-ssh-key.md](deploy-ssh-key.md)** и чеклист в `.env.platform.example`.
+3. Заполняешь **`.env.platform`**: для **каждого** GitHub Environment свой блок (`PRODUCTION_*`, `DEV_*`, …) — VPS, ключ (**без passphrase**), DNS. См. **[deploy-ssh-key.md](deploy-ssh-key.md)**, **[multi-server-deployment.md](multi-server-deployment.md)**, `.env.platform.example`. Старый формат с одним `SSH_HOST`: `./scripts/migrate-env-platform-per-environment.sh`.
 4. Проверяешь ключ: **`./scripts/verify-deploy-ssh-key.sh`** (опционально; `launchpad-run.sh` вызывает сам).
 5. Запускаешь: **`./scripts/launchpad-run.sh`** — на хосте только **Docker**.
 
@@ -338,6 +338,7 @@ flowchart TB
 |--------|---------|
 | Deploy-ключ (без passphrase) | [deploy-ssh-key.md](deploy-ssh-key.md), `verify-deploy-ssh-key.sh` |
 | Всё настроить с ноутбука | `./scripts/launchpad-run.sh` |
+| Убрать стенды с VPS | `TEARDOWN_CONFIRM=yes ./scripts/teardown-platform-run.sh` |
 | PAT / ветки | `./scripts/launchpad-diagnose-git.sh` |
 | Алиас | `source scripts/platform-aliases.sh` → `vpn-setup` |
 | Локальный VPN | `./scripts/local-compose-up.sh` |

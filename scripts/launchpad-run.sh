@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 ## Run setup-platform.sh inside the launchpad container (gh, git, ssh — not on host).
 ##
-## Host needs only: Docker + .env.platform (+ SSH key file path).
+## Host needs only: Docker + .env.platform (per-environment SSH settings).
 ##
 ##   cp .env.platform.example .env.platform
-##   # Fill GITHUB_TOKEN, SSH_*, STAND_DNS_ZONE, LAUNCHPAD_SSH_PRIVATE_KEY_HOST_PATH
 ##   ./scripts/launchpad-run.sh
 
 set -euo pipefail
@@ -18,35 +17,45 @@ if [[ ! -f "${repository_root}/.env.platform" ]]; then
   if [[ -f "${repository_root}/.env.platform.example" ]]; then
     cp "${repository_root}/.env.platform.example" "${repository_root}/.env.platform"
   fi
-  echo "Created .env.platform — fill REQUIRED fields (especially GITHUB_TOKEN and LAUNCHPAD_SSH_PRIVATE_KEY_HOST_PATH), then re-run." >&2
+  echo "Created .env.platform — fill every PRODUCTION_*, DEV_*, … block, then re-run." >&2
   exit 1
 fi
 
-# Load only SSH path on host — do not export GITHUB_TOKEN into docker compose (breaks gh in entrypoint).
 # shellcheck source=/dev/null
+set -a
 source "${repository_root}/.env.platform"
+set +a
 
-launchpad_ssh_key_host_path="${LAUNCHPAD_SSH_PRIVATE_KEY_HOST_PATH:-${SSH_PRIVATE_KEY_FILE:-}}"
-if [[ -z "${launchpad_ssh_key_host_path}" ]]; then
-  echo "Set LAUNCHPAD_SSH_PRIVATE_KEY_HOST_PATH in .env.platform (absolute path to deploy private key on this machine)." >&2
-  exit 1
-fi
-if [[ ! -f "${launchpad_ssh_key_host_path}" ]]; then
-  echo "SSH private key not found: ${launchpad_ssh_key_host_path}" >&2
+# shellcheck source=lib/platform-environments.sh
+source "${repository_root}/scripts/lib/platform-environments.sh"
+
+if ! platform_environment_validate_all; then
   exit 1
 fi
 
-export LAUNCHPAD_SSH_PRIVATE_KEY_HOST_PATH="${launchpad_ssh_key_host_path}"
+if ! platform_environment_validate_shared_server_layout; then
+  exit 1
+fi
+
+# shellcheck source=lib/launchpad-stage-ssh-keys.sh
+source "${repository_root}/scripts/lib/launchpad-stage-ssh-keys.sh"
+stage_launchpad_ssh_keys "${repository_root}"
+
+if [[ -z "${GITHUB_TOKEN:-}" ]]; then
+  echo "Set GITHUB_TOKEN in .env.platform." >&2
+  exit 1
+fi
 
 if ! docker compose version >/dev/null 2>&1; then
   echo "docker compose is required on the host to run the launchpad container." >&2
   exit 1
 fi
 
-echo "=== launchpad: verify deploy SSH key (no passphrase) ==="
+echo "=== launchpad: verify deploy SSH keys (all environments) ==="
 "${repository_root}/scripts/verify-deploy-ssh-key.sh"
 
 echo "=== launchpad: building image (gh + git + ssh inside container) ==="
+export LAUNCHPAD_KEYS_DIRECTORY
 docker compose -f "${compose_file}" build launchpad
 
 echo "=== launchpad: running setup-platform.sh ==="

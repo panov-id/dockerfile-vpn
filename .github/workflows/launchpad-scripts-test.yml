@@ -8,6 +8,8 @@ on:
       - 'scripts/verify-deploy-ssh-key.sh'
       - 'docker/launchpad-entrypoint.sh'
       - 'scripts/lib/vps-docker.sh'
+      - 'scripts/lib/platform-environments.sh'
+      - 'scripts/test-platform-environments.sh'
       - 'scripts/remote/vps-ensure-docker.sh'
       - '.github/workflows/launchpad-scripts-test.yml'
   push:
@@ -20,6 +22,8 @@ on:
       - 'scripts/verify-deploy-ssh-key.sh'
       - 'docker/launchpad-entrypoint.sh'
       - 'scripts/lib/vps-docker.sh'
+      - 'scripts/lib/platform-environments.sh'
+      - 'scripts/test-platform-environments.sh'
       - 'scripts/remote/vps-ensure-docker.sh'
       - '.github/workflows/launchpad-scripts-test.yml'
 
@@ -33,3 +37,4 @@ jobs:
         run: |
           ./scripts/test-ssh-deploy-key.sh
           ./scripts/test-vps-docker-lib.sh
+          ./scripts/test-platform-environments.sh

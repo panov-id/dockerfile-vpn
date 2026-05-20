@@ -13,10 +13,12 @@ cp .env.platform.example .env.platform
 
 | Variable | Purpose |
 |----------|---------|
-| `SSH_HOST`, `SSH_USER` | VPS target |
-| `LAUNCHPAD_SSH_PRIVATE_KEY_HOST_PATH` | Deploy private key — **[no passphrase](deploy-ssh-key.md)** |
+| `PRODUCTION_*`, `UAT_*`, `DEV_*`, `TEST_*`, `MR_PREVIEW_*` | **Required** per GitHub Environment — see `.env.platform.example` |
+| `{PREFIX}_SSH_HOST`, `{PREFIX}_SSH_USER`, `{PREFIX}_SSH_PRIVATE_KEY_HOST_PATH` | VPS target for that environment |
+| `{PREFIX}_BOOTSTRAP_STANDS` | Stands to deploy on that server (`dev`, `production`, …; empty for `mr-preview`) |
 | `GITHUB_TOKEN` | PAT from [github.com/settings/tokens](https://github.com/settings/tokens) |
-| `STAND_DNS_ZONE` | DNS zone for stands (`dev.zone`, `mr-42.zone`, …) |
+
+Multi-server: [multi-server-deployment.md](multi-server-deployment.md). Teardown: `TEARDOWN_CONFIRM=yes ./scripts/teardown-platform-run.sh`.
 
 `GH_HOST` — only for self-hosted GitHub Enterprise; leave unset for **github.com**.
 
@@ -40,7 +42,9 @@ For `panov-id/dockerfile-vpn`: **Contents**, **Actions**, **Administration**, **
 | `scripts/launchpad-run.sh` | Build image + run setup |
 | `scripts/verify-deploy-ssh-key.sh` | Host check: key without passphrase + SSH login |
 | `scripts/launchpad-diagnose-git.sh` | GitHub branches / PAT diagnostics |
-| `scripts/setup-platform.sh` | Invoked inside container (host fallback if `gh` installed) |
+| `scripts/setup-platform.sh` | Invoked inside container |
+| `scripts/teardown-platform-run.sh` | Remove stands/tooling from VPS (not GitHub) |
+| `scripts/migrate-env-platform-per-environment.sh` | One-time legacy `.env.platform` → per-environment blocks |
 
 ## Troubleshooting
 

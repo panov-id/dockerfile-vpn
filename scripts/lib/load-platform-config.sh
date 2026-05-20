@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 ## Source from setup scripts. Loads ${REPOSITORY_ROOT}/.env.platform
-## Sets defaults and validates REQUIRED fields.
+## Per-environment fields only — no global SSH_HOST fallback.
 
 load_platform_config() {
   local repository_root="${1:?repository root required}"
@@ -22,6 +22,10 @@ load_platform_config() {
   source "${config_file}"
   set +a
 
+  local platform_environments_script="${repository_root}/scripts/lib/platform-environments.sh"
+  # shellcheck source=/dev/null
+  source "${platform_environments_script}"
+
   if [[ -z "${GITHUB_REPOSITORY_SLUG:-}" ]]; then
     if git -C "${repository_root}" remote get-url origin >/dev/null 2>&1; then
       local origin_url
@@ -38,10 +42,6 @@ load_platform_config() {
     fi
   fi
 
-  STANDS_ROOT="${STANDS_ROOT:-/srv/vpn}"
-  STANDS_TOOLING_DIRECTORY="${STANDS_TOOLING_DIRECTORY:-${STANDS_ROOT}/_tooling}"
-  VPS_STANDS_TO_BOOTSTRAP="${VPS_STANDS_TO_BOOTSTRAP:-dev,test,uat,production}"
-
   SETUP_GITHUB="${SETUP_GITHUB:-true}"
   SETUP_GITHUB_STRICT="${SETUP_GITHUB_STRICT:-true}"
   SETUP_VPS="${SETUP_VPS:-true}"
@@ -54,44 +54,26 @@ load_platform_config() {
     GIT_REMOTE_URL="git@${git_ssh_host}:${GITHUB_REPOSITORY_SLUG}.git"
   fi
 
-  if [[ -z "${SSH_HOST:-}" || -z "${SSH_USER:-}" ]]; then
-    echo "Set SSH_HOST and SSH_USER in ${config_file}" >&2
+  if [[ -z "${GITHUB_TOKEN:-}" ]] && [[ "${LAUNCHPAD_CONTAINER:-}" != true ]] && ! command -v gh >/dev/null 2>&1; then
+    echo "Install gh or set GITHUB_TOKEN in ${config_file}, or use ./scripts/launchpad-run.sh" >&2
     return 1
   fi
 
-  if [[ -z "${STAND_DNS_ZONE:-}" ]]; then
-    echo "Set STAND_DNS_ZONE in ${config_file} (e.g. vpn.example.com)" >&2
+  if [[ "${LAUNCHPAD_CONTAINER:-}" == true && -z "${GITHUB_TOKEN:-}" ]]; then
+    echo "Set GITHUB_TOKEN in ${config_file} for launchpad (no gh on host)." >&2
     return 1
   fi
 
-  if [[ "${LAUNCHPAD_CONTAINER:-}" == true ]]; then
-    SSH_PRIVATE_KEY_FILE="${SSH_PRIVATE_KEY_FILE:-/run/launchpad/ssh_private_key}"
-    if [[ -z "${GITHUB_TOKEN:-}" ]]; then
-      echo "Set GITHUB_TOKEN in ${config_file} for launchpad (no gh on host)." >&2
-      return 1
-    fi
-  else
-    if [[ -z "${SSH_PRIVATE_KEY_FILE:-}" && -z "${LAUNCHPAD_SSH_PRIVATE_KEY_HOST_PATH:-}" ]]; then
-      echo "Set LAUNCHPAD_SSH_PRIVATE_KEY_HOST_PATH in ${config_file} (see docs/deploy-ssh-key.md)." >&2
-      return 1
-    fi
-    SSH_PRIVATE_KEY_FILE="${SSH_PRIVATE_KEY_FILE:-${LAUNCHPAD_SSH_PRIVATE_KEY_HOST_PATH}}"
-    SSH_PRIVATE_KEY_FILE="${SSH_PRIVATE_KEY_FILE/#\~/${HOME}}"
-    LAUNCHPAD_SSH_PRIVATE_KEY_HOST_PATH="${LAUNCHPAD_SSH_PRIVATE_KEY_HOST_PATH:-${SSH_PRIVATE_KEY_FILE}}"
-    LAUNCHPAD_SSH_PRIVATE_KEY_HOST_PATH="${LAUNCHPAD_SSH_PRIVATE_KEY_HOST_PATH/#\~/${HOME}}"
-    if [[ ! -f "${SSH_PRIVATE_KEY_FILE}" ]]; then
-      echo "SSH private key not found: ${SSH_PRIVATE_KEY_FILE}" >&2
-      return 1
-    fi
-    if [[ -z "${GITHUB_TOKEN:-}" ]] && ! command -v gh >/dev/null 2>&1; then
-      echo "Install gh (sudo apt install gh) or set GITHUB_TOKEN in ${config_file}, or use ./scripts/launchpad-run.sh" >&2
-      return 1
-    fi
+  if ! platform_environment_validate_all; then
+    return 1
   fi
 
-  export GITHUB_REPOSITORY_SLUG STANDS_ROOT STANDS_TOOLING_DIRECTORY
-  export GIT_REMOTE_URL SSH_HOST SSH_USER SSH_PRIVATE_KEY_FILE STAND_DNS_ZONE
-  export VPS_STANDS_TO_BOOTSTRAP SETUP_GITHUB SETUP_GITHUB_STRICT SETUP_VPS SETUP_VPS_INSTALL_DOCKER SETUP_CREATE_BRANCHES SETUP_LOCAL_COMPOSE_CHECK
-  export GITHUB_TOKEN LAUNCHPAD_CONTAINER LAUNCHPAD_SSH_PRIVATE_KEY_HOST_PATH
-  export GH_HOST GITHUB_API_URL
+  if ! platform_environment_validate_shared_server_layout; then
+    return 1
+  fi
+
+  export GITHUB_REPOSITORY_SLUG GIT_REMOTE_URL GITHUB_TOKEN
+  export SETUP_GITHUB SETUP_GITHUB_STRICT SETUP_VPS SETUP_VPS_INSTALL_DOCKER SETUP_CREATE_BRANCHES SETUP_LOCAL_COMPOSE_CHECK
+  export LAUNCHPAD_CONTAINER LAUNCHPAD_KEYS_DIRECTORY GH_HOST GITHUB_API_URL PLATFORM_ENVIRONMENTS
+  return 0
 }

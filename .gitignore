@@ -11,3 +11,5 @@ config.local/
 config.local.stack-b/
 
 .idea/
+
+.launchpad-keys-staging/
