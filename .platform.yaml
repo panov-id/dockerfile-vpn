@@ -1,0 +1,23 @@
+# Application manifest (no secrets). See .platform.yaml.example for field reference.
+
+platform_launchpad:
+  source: embedded
+  image: ghcr.io/panov-id/platform-launchpad
+  version: "1.0.0"
+
+platform_environments:
+  - production
+  - uat
+  - dev
+  - test
+  - mr-preview
+
+application:
+  repository_slug: panov-id/dockerfile-vpn
+  compose_file: docker-compose.yml
+  compose_observability_file: docker-compose.observability.yml
+  stand_layout_script: scripts/stand-layout.sh
+  remote_deploy_script: scripts/remote/vps-deploy-stand.sh
+  remote_teardown_script: scripts/remote/vps-teardown-stand.sh
+
+observability_stand_enabled: true

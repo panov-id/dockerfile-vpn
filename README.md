@@ -20,7 +20,8 @@ Self-hosted **WireGuard** ([linuxserver/wireguard](https://docs.linuxserver.io/i
 | **UAT** | GitHub **pre-release** → uat stand (same mechanics, other directory/port) |
 | **dev / test** | Push to branch → persistent stand updates |
 | **MR preview** | PR into **`dev`** → temporary stand (`pull/N/merge`), torn down on close |
-| **One-shot platform setup** | `./scripts/launchpad-run.sh` + `.env.platform` → GitHub envs/secrets, VPS Docker, stands |
+| **One-shot platform setup** | `.platform.yaml` + `.env.platform` → `./scripts/launchpad-run.sh` (Platform Launchpad product) |
+| **Observability (per repo)** | Grafana + Loki on VPS (`observability` stand) — not part of launchpad product |
 | **Multi-server** | Per-environment blocks in `.env.platform` → [multi-server-deployment.md](docs/multi-server-deployment.md) |
 | **Teardown VPS** | `TEARDOWN_CONFIRM=yes ./scripts/teardown-platform-run.sh` |
 | **Local rehearsal** | `docker-compose.local.yml` + scripts on your laptop |
@@ -36,6 +37,7 @@ Each stand has its own **UDP port**, **tunnel subnet**, **Compose project name**
 ```bash
 git clone https://github.com/panov-id/dockerfile-vpn.git
 cd dockerfile-vpn
+cp .platform.yaml.example .platform.yaml   # optional if .platform.yaml already in repo
 cp .env.platform.example .env.platform
 # Edit: GITHUB_TOKEN + each PRODUCTION_*, UAT_*, DEV_*, TEST_*, MR_PREVIEW_* block
 ./scripts/verify-deploy-ssh-key.sh   # optional; launchpad-run.sh runs this too
@@ -166,14 +168,20 @@ Generated on the server (never commit): **`config/`**, **`.env`**, WireGuard key
 
 - Public VPN service for strangers (personal / small-team use).
 - Bundled admin UI (no wg-easy) — file-based peers under `config/`.
-- Full observability stack (see [docs/ROADMAP.md](docs/ROADMAP.md)).
+- Centralized observability for all your apps (each app ships its own Grafana/Loki; see [docs/platform-launchpad-product.md](docs/platform-launchpad-product.md)).
 
 ---
+
+## Platform Launchpad vs this app
+
+- **Product:** [docs/platform-launchpad-product.md](docs/platform-launchpad-product.md) — versioned launchpad (`platform_launchpad.version` in `.platform.yaml`), reusable in any repository.
+- **This repo:** WireGuard stands + **per-repo** Grafana/Loki (`docker-compose.observability.yml`).
 
 ## Versioning
 
 - [CHANGELOG.md](CHANGELOG.md) — [Keep a Changelog](https://keepachangelog.com/)
 - Tags: [SemVer](https://semver.org/) (`v1.x.y`); deploy workflow checks out the **Release tag**
+- Platform Launchpad product: `export/platform-launchpad/VERSION` (mirror until [platform-launchpad](https://github.com/panov-id/platform-launchpad) repo is published)
 
 ---
 

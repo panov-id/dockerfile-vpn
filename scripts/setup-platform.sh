@@ -14,7 +14,8 @@
 
 set -euo pipefail
 
-repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+repository_root="${APP_REPOSITORY_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+repository_root="$(cd "${repository_root}" && pwd)"
 cd "${repository_root}"
 
 # shellcheck source=lib/load-platform-config.sh
@@ -311,9 +312,9 @@ bootstrap_stands_for_environment() {
     stand_type="$(echo "${stand_type}" | tr -d ' ')"
     [[ -z "${stand_type}" ]] && continue
     case "${stand_type}" in
-      dev|test|uat|production)
+      dev|test|uat|production|observability)
         git_ref="${stand_type}"
-        if [[ "${stand_type}" == uat || "${stand_type}" == production ]]; then
+        if [[ "${stand_type}" == uat || "${stand_type}" == production || "${stand_type}" == observability ]]; then
           git_ref="main"
         fi
         run_remote_stand_deploy "${environment_name}" "${stand_type}" "${git_ref}"

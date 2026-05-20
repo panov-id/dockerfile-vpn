@@ -10,9 +10,11 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile.launchpad
+    working_dir: /workspace/app
     volumes:
-      - ..:/workspace/repo
-      - ../.env.platform:/workspace/repo/.env.platform:ro
+      - ..:/workspace/app
+      - ../.env.platform:/workspace/.env.platform:ro
       - ${LAUNCHPAD_KEYS_DIRECTORY:?Run ./scripts/launchpad-run.sh first}:/run/launchpad/keys:ro
     environment:
       LAUNCHPAD_CONTAINER: "true"
+      APP_REPOSITORY_ROOT: /workspace/app

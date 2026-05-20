@@ -1,0 +1,16 @@
+# Platform Launchpad product compose (build from this directory).
+# Application launchpad-run.sh mounts the app at /workspace/app when running.
+
+services:
+  launchpad:
+    build:
+      context: .
+      dockerfile: Dockerfile.launchpad
+    working_dir: /workspace/app
+    volumes:
+      - ${APP_REPOSITORY_ROOT:?Set APP_REPOSITORY_ROOT to the application repository}:/workspace/app
+      - ${APP_REPOSITORY_ROOT}/.env.platform:/workspace/.env.platform:ro
+      - ${LAUNCHPAD_KEYS_DIRECTORY:?Run launchpad-run.sh first}:/run/launchpad/keys:ro
+    environment:
+      LAUNCHPAD_CONTAINER: "true"
+      APP_REPOSITORY_ROOT: /workspace/app

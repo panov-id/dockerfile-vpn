@@ -9,7 +9,7 @@
 ## Required environment variables:
 ##   STANDS_ROOT              — e.g. /srv/vpn
 ##   STANDS_TOOLING_DIRECTORY — e.g. /srv/vpn/_tooling
-##   STAND_TYPE               — dev | test | mr
+##   STAND_TYPE               — dev | test | uat | production | observability | mr
 ##   GIT_REF                  — branch (dev, test) or unused for mr (uses merge ref)
 ##   WIREGUARD_SERVER_PUBLIC_HOST
 ##
@@ -91,6 +91,60 @@ if [[ "${stand_type}" == mr ]]; then
 else
   git checkout "${git_ref}" 2>/dev/null || git checkout -b "${git_ref}" "origin/${git_ref}"
   git pull --ff-only origin "${git_ref}" || true
+fi
+
+if [[ "${stand_type}" == observability ]]; then
+  if [[ ! -f docker-compose.observability.yml ]]; then
+    echo "No docker-compose.observability.yml in ${deploy_directory}" >&2
+    exit 1
+  fi
+  if [[ ! -f .env.observability.example ]]; then
+    echo "No .env.observability.example in ${deploy_directory}" >&2
+    exit 1
+  fi
+  if [[ ! -f .env.observability ]]; then
+    cp .env.observability.example .env.observability
+  fi
+  apply_observability_env_key() {
+    local key="$1"
+    local value="$2"
+    if command -v python3 >/dev/null 2>&1; then
+      DEPLOY_ENV_FILE=".env.observability" DEPLOY_ENV_KEY="${key}" DEPLOY_ENV_VALUE="${value}" python3 <<'PY'
+import os
+path = os.environ["DEPLOY_ENV_FILE"]
+key = os.environ["DEPLOY_ENV_KEY"]
+val = os.environ["DEPLOY_ENV_VALUE"]
+with open(path, encoding="utf-8") as handle:
+    lines = handle.read().splitlines()
+out = []
+seen = False
+for line in lines:
+    if line.startswith(key + "="):
+        out.append(key + "=" + val)
+        seen = True
+    else:
+        out.append(line)
+if not seen:
+    out.append(key + "=" + val)
+with open(path, "w", encoding="utf-8") as handle:
+    handle.write("\n".join(out) + "\n")
+PY
+    else
+      echo "python3 required to update .env.observability" >&2
+      exit 1
+    fi
+  }
+  apply_observability_env_key "COMPOSE_PROJECT_NAME" "${COMPOSE_PROJECT_NAME}"
+  echo "=== .env.observability ==="
+  grep -E '^COMPOSE_PROJECT_NAME=' .env.observability || true
+  if [[ "${skip_compose_up}" == "true" ]]; then
+    echo "SKIP_COMPOSE_UP=true — not running docker compose up"
+    exit 0
+  fi
+  docker compose -f docker-compose.observability.yml --env-file .env.observability up -d --pull always
+  docker compose -f docker-compose.observability.yml --env-file .env.observability ps
+  echo "=== observability deploy finished: ${deploy_directory} ==="
+  exit 0
 fi
 
 if [[ ! -f docker-compose.yml ]]; then

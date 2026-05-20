@@ -15,7 +15,7 @@ stand_type="${1:-}"
 stand_identifier="${2:-}"
 
 if [[ -z "${stand_type}" ]]; then
-  echo "usage: $0 <dev|test|uat|production|mr> [pull_request_number]" >&2
+  echo "usage: $0 <dev|test|uat|production|observability|mr> [pull_request_number]" >&2
   exit 1
 fi
 
@@ -43,6 +43,12 @@ case "${stand_type}" in
     wireguard_server_port="51823"
     wireguard_internal_subnet="10.13.23.0"
     stand_directory_suffix="dev"
+    ;;
+  observability)
+    compose_project_name="vpn-observability"
+    wireguard_server_port="0"
+    wireguard_internal_subnet="0.0.0.0"
+    stand_directory_suffix="observability"
     ;;
   mr|merge-request|merge_request)
     if [[ -z "${stand_identifier}" ]] || ! [[ "${stand_identifier}" =~ ^[0-9]+$ ]]; then
@@ -85,6 +91,9 @@ if [[ -n "${STAND_DNS_ZONE:-}" ]]; then
       ;;
     dev|development)
       wireguard_server_public_host="dev.${stand_dns_zone}"
+      ;;
+    observability)
+      wireguard_server_public_host="grafana.${stand_dns_zone}"
       ;;
     mr|merge-request|merge_request)
       wireguard_server_public_host="mr-${stand_identifier}.${stand_dns_zone}"

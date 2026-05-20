@@ -9,6 +9,16 @@ launchpad_preflight_host() {
     return 1
   fi
 
+  local manifest_loader="${repository_root}/scripts/lib/read-platform-manifest.sh"
+  if [[ -f "${manifest_loader}" ]]; then
+    # shellcheck source=read-platform-manifest.sh
+    source "${manifest_loader}"
+    load_platform_manifest "${repository_root}"
+    if [[ -n "${PLATFORM_ENVIRONMENTS_FROM_MANIFEST:-}" ]]; then
+      export PLATFORM_ENVIRONMENTS="${PLATFORM_ENVIRONMENTS_FROM_MANIFEST}"
+    fi
+  fi
+
   # shellcheck source=/dev/null
   set -a
   source "${repository_root}/.env.platform"

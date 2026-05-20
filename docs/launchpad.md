@@ -5,11 +5,15 @@ Run **full platform setup** without installing `gh`, `git`, or OpenSSH on your l
 ## Quick start
 
 ```bash
+cp .platform.yaml.example .platform.yaml   # if not already committed
 cp .env.platform.example .env.platform
 # Fill variables (see checklist in the example file)
 ./scripts/verify-deploy-ssh-key.sh
 ./scripts/launchpad-run.sh
 ```
+
+Manifest (no secrets): **`.platform.yaml`** — Platform Launchpad version and `platform_environments`.  
+Product vs app: [platform-launchpad-product.md](platform-launchpad-product.md).
 
 | Variable | Purpose |
 |----------|---------|
@@ -27,7 +31,7 @@ Multi-server: [multi-server-deployment.md](multi-server-deployment.md). Teardown
 1. **`dev` / `test` branches** (GitHub API) if missing  
 2. **GitHub Environments** + secrets + variables  
 3. **VPS:** install **Docker + Compose** on Debian/Ubuntu if missing (`docker.io`, `docker-compose-plugin`)  
-4. **VPS stands** (`dev`, `test`, `uat`, `production` by default) — clone + `docker compose up`  
+4. **VPS stands** (`dev`, `test`, `uat`, `production`, optional `observability`) — clone + `docker compose up`  
 
 See [stands-on-one-vps.md](stands-on-one-vps.md) for DNS and UDP firewall. Disable auto-install: `SETUP_VPS_INSTALL_DOCKER=false` in `.env.platform`.
 

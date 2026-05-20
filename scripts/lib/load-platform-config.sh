@@ -5,6 +5,23 @@
 load_platform_config() {
   local repository_root="${1:?repository root required}"
   local config_file="${repository_root}/.env.platform"
+  local manifest_loader="${repository_root}/scripts/lib/read-platform-manifest.sh"
+
+  if [[ -f "${manifest_loader}" ]]; then
+    # shellcheck source=read-platform-manifest.sh
+    source "${manifest_loader}"
+    load_platform_manifest "${repository_root}"
+    if [[ -n "${PLATFORM_ENVIRONMENTS_FROM_MANIFEST:-}" ]]; then
+      PLATFORM_ENVIRONMENTS="${PLATFORM_ENVIRONMENTS_FROM_MANIFEST}"
+      export PLATFORM_ENVIRONMENTS
+    fi
+    local repository_slug_from_manifest
+    repository_slug_from_manifest="$(read_platform_manifest_value "${repository_root}/.platform.yaml" application.repository_slug 2>/dev/null || true)"
+    if [[ -n "${repository_slug_from_manifest}" ]]; then
+      GITHUB_REPOSITORY_SLUG="${repository_slug_from_manifest}"
+      export GITHUB_REPOSITORY_SLUG
+    fi
+  fi
 
   if [[ ! -f "${config_file}" ]]; then
     local example_file="${repository_root}/.env.platform.example"
@@ -15,6 +32,11 @@ load_platform_config() {
       echo "Missing ${config_file} (and no .env.platform.example)." >&2
     fi
     return 1
+  fi
+
+  if [[ -n "${PLATFORM_ENVIRONMENTS_FROM_MANIFEST:-}" && -z "${PLATFORM_ENVIRONMENTS:-}" ]]; then
+    PLATFORM_ENVIRONMENTS="${PLATFORM_ENVIRONMENTS_FROM_MANIFEST}"
+    export PLATFORM_ENVIRONMENTS
   fi
 
   # shellcheck source=/dev/null

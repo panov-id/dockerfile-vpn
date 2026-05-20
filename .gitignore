@@ -4,6 +4,10 @@
 !.env.local.example
 !.env.local.stack-b.example
 !.env.platform.example
+!.env.observability.example
+
+observability/loki-data/
+observability/grafana-data/
 
 # linuxserver/wireguard persists generated keys and peer configs here
 config/

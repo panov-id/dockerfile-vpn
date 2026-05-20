@@ -1,0 +1,44 @@
+# Application manifest — copy to .platform.yaml (committed is OK, no secrets here).
+# Secrets stay in .env.platform (gitignored).
+#
+#   cp .platform.yaml.example .platform.yaml
+#   cp .env.platform.example .env.platform
+#   ./scripts/launchpad-run.sh
+
+# --- Platform Launchpad product (separate repository) -------------------------
+# Repository: https://github.com/panov-id/platform-launchpad
+# Semver tags and container tags must match (e.g. 1.0.0).
+
+platform_launchpad:
+  # embedded — launchpad scripts from export/platform-launchpad in this repo (dev)
+  # registry — pull container image (production use)
+  source: embedded
+  image: ghcr.io/panov-id/platform-launchpad
+  version: "1.0.0"
+
+# GitHub environments launchpad will create/configure (subset is OK)
+platform_environments:
+  - production
+  - uat
+  - dev
+  - test
+  - mr-preview
+
+# Example minimal project (dev + production only on one VPS):
+# platform_environments:
+#   - production
+#   - dev
+
+# --- Application (this repository) --------------------------------------------
+
+application:
+  repository_slug: panov-id/dockerfile-vpn
+  compose_file: docker-compose.yml
+  compose_observability_file: docker-compose.observability.yml
+  stand_layout_script: scripts/stand-layout.sh
+  remote_deploy_script: scripts/remote/vps-deploy-stand.sh
+  remote_teardown_script: scripts/remote/vps-teardown-stand.sh
+
+# Bootstrap stands on VPS during launchpad (per environment blocks in .env.platform)
+# Typical: production, dev, test, uat — plus observability once per server:
+observability_stand_enabled: true

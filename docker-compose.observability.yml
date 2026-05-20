@@ -1,0 +1,49 @@
+# Per-repository observability stack (Grafana + Loki + Promtail).
+# Deploy once per VPS: BOOTSTRAP_STANDS=...,observability in one .env.platform environment block.
+#
+#   docker compose -f docker-compose.observability.yml --env-file .env.observability up -d
+
+services:
+  loki:
+    image: grafana/loki:3.0.0
+    container_name: loki-${COMPOSE_PROJECT_NAME:-vpn-observability}
+    command: -config.file=/etc/loki/local-config.yaml
+    ports:
+      - "127.0.0.1:3100:3100"
+    volumes:
+      - ./observability/loki-data:/loki
+    restart: unless-stopped
+    labels:
+      - "logging.app=dockerfile-vpn"
+
+  promtail:
+    image: grafana/promtail:3.0.0
+    container_name: promtail-${COMPOSE_PROJECT_NAME:-vpn-observability}
+    command: -config.file=/etc/promtail/config.yml
+    volumes:
+      - ./observability/promtail-config.yml:/etc/promtail/config.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - loki
+    restart: unless-stopped
+    labels:
+      - "logging.app=dockerfile-vpn"
+
+  grafana:
+    image: grafana/grafana:11.0.0
+    container_name: grafana-${COMPOSE_PROJECT_NAME:-vpn-observability}
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-changeme}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    ports:
+      - "${GRAFANA_HTTP_PORT:-3000}:3000"
+    volumes:
+      - ./observability/grafana-data:/var/lib/grafana
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - loki
+    restart: unless-stopped
+    labels:
+      - "logging.app=dockerfile-vpn"

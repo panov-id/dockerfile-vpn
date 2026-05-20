@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`.platform.yaml`** manifest: Platform Launchpad `embedded` / `registry`, `platform_environments`, application paths; [docs/platform-launchpad-product.md](docs/platform-launchpad-product.md).
+- **`scripts/lib/platform-launchpad-client.sh`**, **`scripts/lib/read-platform-manifest.sh`** — launchpad via product version.
+- **`export/platform-launchpad/`** — mirror skeleton for standalone `platform-launchpad` repository (v1.0.0).
+- **Per-repository observability:** `docker-compose.observability.yml`, Loki/Grafana/Promtail, `observability` stand in `stand-layout.sh` and VPS deploy.
 - **Per-environment platform config** in `.env.platform` (`PRODUCTION_*`, `DEV_*`, …); multi-server ([docs/multi-server-deployment.md](docs/multi-server-deployment.md)).
 - **`scripts/teardown-platform-run.sh`** / **`scripts/remote/vps-teardown-platform.sh`** — remove stands from VPS (GitHub unchanged).
 - **`scripts/lib/platform-environments.sh`**, **`scripts/lib/platform-launchpad-only.sh`**, **`scripts/test-platform-environments.sh`**.
