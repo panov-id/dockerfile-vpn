@@ -20,6 +20,13 @@ assert_equals() {
 assert_equals "PRODUCTION" "$(platform_environment_name_to_prefix production)" "prefix production"
 assert_equals "MR_PREVIEW" "$(platform_environment_name_to_prefix mr-preview)" "prefix mr-preview"
 
+export PLATFORM_ENVIRONMENTS=production,invalid-env
+if platform_environment_validate_names; then
+  echo "FAIL: invalid PLATFORM_ENVIRONMENTS must fail" >&2
+  exit 1
+fi
+unset PLATFORM_ENVIRONMENTS
+
 PLATFORM_ENVIRONMENTS=dev,production
 export PLATFORM_ENVIRONMENTS
 mapfile -t listed < <(platform_environment_list)

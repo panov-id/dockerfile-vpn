@@ -21,6 +21,28 @@ platform_environment_name_to_prefix() {
   printf '%s' "${environment_name}" | tr '[:lower:]-' '[:upper:]_'
 }
 
+platform_environment_is_known_name() {
+  local environment_name="$1"
+  case "${environment_name}" in
+    production|uat|dev|test|mr-preview) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+platform_environment_validate_names() {
+  local environment_name
+  local failures=0
+  while IFS= read -r environment_name; do
+    [[ -z "${environment_name}" ]] && continue
+    if ! platform_environment_is_known_name "${environment_name}"; then
+      echo "Unknown environment in PLATFORM_ENVIRONMENTS: ${environment_name}" >&2
+      echo "  Allowed: production, uat, dev, test, mr-preview" >&2
+      failures=$((failures + 1))
+    fi
+  done < <(platform_environment_list)
+  [[ "${failures}" -eq 0 ]]
+}
+
 platform_environment_list() {
   local configured="${PLATFORM_ENVIRONMENTS:-}"
   if [[ -z "${configured}" ]]; then

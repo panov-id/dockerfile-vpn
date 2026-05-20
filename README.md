@@ -21,6 +21,8 @@ Self-hosted **WireGuard** ([linuxserver/wireguard](https://docs.linuxserver.io/i
 | **dev / test** | Push to branch → persistent stand updates |
 | **MR preview** | PR into **`dev`** → temporary stand (`pull/N/merge`), torn down on close |
 | **One-shot platform setup** | `./scripts/launchpad-run.sh` + `.env.platform` → GitHub envs/secrets, VPS Docker, stands |
+| **Multi-server** | Per-environment blocks in `.env.platform` → [multi-server-deployment.md](docs/multi-server-deployment.md) |
+| **Teardown VPS** | `TEARDOWN_CONFIRM=yes ./scripts/teardown-platform-run.sh` |
 | **Local rehearsal** | `docker-compose.local.yml` + scripts on your laptop |
 
 Each stand has its own **UDP port**, **tunnel subnet**, **Compose project name**, and (with **`STAND_DNS_ZONE`**) hostname — e.g. `dev.vpn.example.com`, `mr-42.vpn.example.com`, apex for production.

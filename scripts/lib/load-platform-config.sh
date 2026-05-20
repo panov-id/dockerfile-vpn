@@ -64,6 +64,14 @@ load_platform_config() {
     return 1
   fi
 
+  if [[ -n "${SSH_HOST:-}" ]]; then
+    echo "Warning: legacy SSH_HOST in .env.platform is ignored — use PRODUCTION_SSH_HOST, DEV_SSH_HOST, …" >&2
+  fi
+
+  if ! platform_environment_validate_names; then
+    return 1
+  fi
+
   if ! platform_environment_validate_all; then
     return 1
   fi

@@ -25,5 +25,4 @@ if ! platform_environment_validate_all; then
   exit 1
 fi
 
-export TEARDOWN_CONFIRM="${TEARDOWN_CONFIRM:-yes}"
 exec "${repository_root}/scripts/teardown-platform.sh"

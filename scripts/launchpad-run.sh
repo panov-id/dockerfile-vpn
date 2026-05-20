@@ -21,30 +21,9 @@ if [[ ! -f "${repository_root}/.env.platform" ]]; then
   exit 1
 fi
 
-# shellcheck source=/dev/null
-set -a
-source "${repository_root}/.env.platform"
-set +a
-
-# shellcheck source=lib/platform-environments.sh
-source "${repository_root}/scripts/lib/platform-environments.sh"
-
-if ! platform_environment_validate_all; then
-  exit 1
-fi
-
-if ! platform_environment_validate_shared_server_layout; then
-  exit 1
-fi
-
-# shellcheck source=lib/launchpad-stage-ssh-keys.sh
-source "${repository_root}/scripts/lib/launchpad-stage-ssh-keys.sh"
-stage_launchpad_ssh_keys "${repository_root}"
-
-if [[ -z "${GITHUB_TOKEN:-}" ]]; then
-  echo "Set GITHUB_TOKEN in .env.platform." >&2
-  exit 1
-fi
+# shellcheck source=lib/launchpad-preflight.sh
+source "${repository_root}/scripts/lib/launchpad-preflight.sh"
+launchpad_preflight_host "${repository_root}"
 
 if ! docker compose version >/dev/null 2>&1; then
   echo "docker compose is required on the host to run the launchpad container." >&2

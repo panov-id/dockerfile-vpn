@@ -1,6 +1,8 @@
 # Dev, test, and MR preview stands on one VPS
 
-All stands share one physical server for now. Each stand is an **isolated** directory, **Compose project name**, **UDP port**, and **tunnel subnet**. Production/UAT from **GitHub Releases** stay as documented in the root README.
+Typical setup: **several stands on one physical server**. Each stand is an **isolated** directory, **Compose project name**, **UDP port**, and **tunnel subnet**. Production/UAT from **GitHub Releases** use the same model under `DEPLOY_DIRECTORY`.
+
+**Several VPS hosts:** configure different `{PREFIX}_SSH_HOST` per GitHub Environment in `.env.platform` — see **[multi-server-deployment.md](multi-server-deployment.md)**. Workflows are unchanged.
 
 ## Branch and deploy model
 
@@ -49,14 +51,16 @@ Computed by [`scripts/stand-layout.sh`](../scripts/stand-layout.sh) when `STAND_
 
 ### DNS at your provider (recommended)
 
-Point all stand hostnames to the **same VPS IP**:
+Point hostnames to the **VPS IP for that environment** (`{PREFIX}_SSH_HOST` in `.env.platform`). On **one server**, all environments share one IP:
 
 ```text
 *.vpn.example.com.   A    203.0.113.10
 vpn.example.com.     A    203.0.113.10
 ```
 
-Wildcard covers every **`mr-<N>.vpn.example.com`** without creating records per PR. You can still add explicit A records for `dev`, `test`, etc.
+With **multiple servers**, point production DNS to the production host and dev/MR DNS to the lab host (same zone, different A records).
+
+Wildcard covers every **`mr-<N>.vpn.example.com`** without creating records per PR.
 
 If **`STAND_DNS_ZONE`** is unset, workflows fall back to **`WIREGUARD_SERVER_PUBLIC_HOST`** (single hostname for every stand — legacy mode).
 
@@ -70,12 +74,12 @@ Run on your laptop (only Docker required on the host):
 
 ```bash
 cp .env.platform.example .env.platform
-# GITHUB_TOKEN, LAUNCHPAD_SSH_PRIVATE_KEY_HOST_PATH (no passphrase), SSH_*, STAND_DNS_ZONE
+# GITHUB_TOKEN + PRODUCTION_*, UAT_*, DEV_*, TEST_*, MR_PREVIEW_* (see example file)
 # See docs/deploy-ssh-key.md
 ./scripts/launchpad-run.sh
 ```
 
-This creates environments, uploads secrets/variables, and bootstraps VPS stands — no manual typing in the GitHub UI.
+This creates environments, uploads **per-environment** secrets/variables, and bootstraps stands listed in each `{PREFIX}_BOOTSTRAP_STANDS`.
 
 ### Manual reference (if you skip the script)
 
@@ -133,6 +137,14 @@ cd /srv/vpn/mr-42 && docker compose ps
 
 If the PR cannot be merged into `dev`, GitHub does not provide `pull/N/merge` and the MR preview deploy **fails** until conflicts are resolved.
 
-## Later: separate servers
+## Teardown on VPS
 
-Point `SSH_HOST` / `STANDS_ROOT` per environment to different machines; workflows stay the same.
+Remove stands and tooling (GitHub unchanged):
+
+```bash
+TEARDOWN_CONFIRM=yes ./scripts/teardown-platform-run.sh
+```
+
+## Separate servers
+
+Fully documented in **[multi-server-deployment.md](multi-server-deployment.md)** — different `{PREFIX}_SSH_HOST` per environment; workflows stay the same.
